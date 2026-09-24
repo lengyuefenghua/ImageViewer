@@ -65,6 +65,8 @@ namespace ImageViewer.Views
         private void RegisterClick(object sender, RoutedEventArgs e)
         {
             StatusText.Text = associations.Register();
+            // 注册成功后自动打开系统「默认应用」页，省去用户手动查找；成为默认仍需 Windows 由用户确认。
+            if (associations.IsRegistered) OpenDefaultAppsSettings();
         }
 
         private void UnregisterClick(object sender, RoutedEventArgs e)
@@ -73,6 +75,11 @@ namespace ImageViewer.Views
         }
 
         private void OpenDefaultAppsClick(object sender, RoutedEventArgs e)
+        {
+            OpenDefaultAppsSettings();
+        }
+
+        private void OpenDefaultAppsSettings()
         {
             try
             {

@@ -1,6 +1,8 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
+using ImageViewer.App.Runtime;
 using ImageViewer.Core.Diagnostics;
 
 namespace ImageViewer.App.Services
@@ -13,12 +15,15 @@ namespace ImageViewer.App.Services
         private readonly FileAssociationService userAssociations;
         private readonly FileAssociationRegistrar registrar;
         private readonly Func<string> executablePath;
+        private readonly string preferencesPath;
+        private bool promptDismissed;
 
         public ViewerAssociationService(
             FileAssociationService machineAssociations,
             FileAssociationService userAssociations,
             FileAssociationRegistrar registrar = null,
-            Func<string> executablePath = null)
+            Func<string> executablePath = null,
+            string preferencesPath = null)
         {
             if (machineAssociations == null) throw new ArgumentNullException("machineAssociations");
             if (userAssociations == null) throw new ArgumentNullException("userAssociations");
@@ -26,9 +31,28 @@ namespace ImageViewer.App.Services
             this.userAssociations = userAssociations;
             this.registrar = registrar ?? new FileAssociationRegistrar();
             this.executablePath = executablePath ?? DefaultExecutablePath;
+            this.preferencesPath = String.IsNullOrWhiteSpace(preferencesPath)
+                ? ResolveDefaultPreferencesPath()
+                : preferencesPath;
+            promptDismissed = ViewerPreferencesStore.TryLoadDismissed(this.preferencesPath);
         }
 
         public bool IsRegistered { get { return machineAssociations.IsRegistered(executablePath()); } }
+
+        // 首启引导条件：用户未拒绝过、当前不是默认应用、且注册未指向当前 exe（程序移动后注册会过时）。
+        public bool ShouldPromptForDefaultViewer()
+        {
+            if (promptDismissed) return false;
+            if (userAssociations.IsDefaultViewer()) return false;
+            return !machineAssociations.IsRegisteredFor(executablePath());
+        }
+
+        public void DismissDefaultViewerPrompt()
+        {
+            promptDismissed = true;
+            ViewerPreferencesStore.SaveDismissed(preferencesPath, true);
+            Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "用户选择不再提示设为默认图片查看器：" + executablePath(), null);
+        }
 
         public string Register()
         {
@@ -101,6 +125,20 @@ namespace ImageViewer.App.Services
         private static string DefaultExecutablePath()
         {
             return Process.GetCurrentProcess().MainModule.FileName;
+        }
+
+        private static string ResolveDefaultPreferencesPath()
+        {
+            try
+            {
+                var directory = ImageViewerPaths.ForCurrentUser().ConfigurationDirectory;
+                return Path.Combine(directory, ViewerPreferencesStore.FileName);
+            }
+            catch (Exception error)
+            {
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "解析查看器偏好路径失败", error);
+                return null;
+            }
         }
     }
 }

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using ImageViewer.App.Services;
 using Microsoft.Win32;
 using Xunit;
@@ -10,6 +12,7 @@ namespace ImageViewer.App.Tests.Services
     {
         private readonly string testRoot = @"Software\ImageViewerAssocTest-" + Guid.NewGuid().ToString("N");
         private readonly string exePath = @"C:\Apps\ImageViewer\ImageViewer.exe";
+        private readonly List<string> preferenceFiles = new List<string>();
 
         public void Dispose()
         {
@@ -20,6 +23,29 @@ namespace ImageViewer.App.Tests.Services
             catch (Exception)
             {
             }
+
+            foreach (var path in preferenceFiles)
+            {
+                try
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        private string NewPreferencesPath()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "iv-prefs-" + Guid.NewGuid().ToString("N") + ".json");
+            preferenceFiles.Add(path);
+            return path;
+        }
+
+        private FileAssociationRegistrar AdminRegistrar()
+        {
+            return new FileAssociationRegistrar(() => true, argument => 0);
         }
 
         private FileAssociationService CreateMachine() { return new FileAssociationService(Registry.CurrentUser, testRoot); }
@@ -105,6 +131,36 @@ namespace ImageViewer.App.Tests.Services
             Assert.False(machine.IsRegistered(exePath));
             Assert.False(service.IsRegistered);
             Assert.Contains("已取消", status);
+        }
+
+        [Fact]
+        public void ShouldPromptForDefaultViewer_is_true_when_not_dismissed_not_default_and_not_registered()
+        {
+            var service = new ViewerAssociationService(CreateMachine(), CreateUser(), AdminRegistrar(), () => exePath, NewPreferencesPath());
+
+            Assert.True(service.ShouldPromptForDefaultViewer());
+        }
+
+        [Fact]
+        public void ShouldPromptForDefaultViewer_is_false_when_registered_for_current_exe()
+        {
+            var machine = CreateMachine();
+            machine.Register(exePath);
+            var service = new ViewerAssociationService(machine, CreateUser(), AdminRegistrar(), () => exePath, NewPreferencesPath());
+
+            Assert.False(service.ShouldPromptForDefaultViewer());
+        }
+
+        [Fact]
+        public void DismissDefaultViewerPrompt_persists_and_stops_prompting()
+        {
+            var preferencesPath = NewPreferencesPath();
+            var service = new ViewerAssociationService(CreateMachine(), CreateUser(), AdminRegistrar(), () => exePath, preferencesPath);
+
+            service.DismissDefaultViewerPrompt();
+            var reopened = new ViewerAssociationService(CreateMachine(), CreateUser(), AdminRegistrar(), () => exePath, preferencesPath);
+
+            Assert.False(reopened.ShouldPromptForDefaultViewer());
         }
     }
 }

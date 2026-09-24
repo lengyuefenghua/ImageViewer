@@ -3,8 +3,8 @@ using System.Windows;
 using ImageViewer.App.Runtime;
 using ImageViewer.App.Standalone;
 using ImageViewer.Core.Diagnostics;
+using Microsoft.Win32;
 using Wpf.Ui.Appearance;
-using Wpf.Ui.Controls;
 
 namespace ImageViewer.App
 {
@@ -12,22 +12,23 @@ namespace ImageViewer.App
     {
         protected override void OnStartup(StartupEventArgs e)
         {
-            // 命令行图片参数优先：有效则进入查看器；否则提示用法并退出，不打开空白看图窗口。
-            string imagePath;
-            if (CommandLineImageArgument.TryResolve(e.Args, out imagePath))
-            {
-                StartViewer(imagePath);
-                return;
-            }
-
-            ShowUsageAndExit();
-        }
-
-        private void StartViewer(string imagePath)
-        {
             var paths = ImageViewerPaths.ForCurrentUser();
             AppLogging.Initialize(paths.LogsDirectory, LogSeverity.Error);
             AppLogging.RegisterGlobalExceptionHandlers();
+
+            // 命令行图片参数优先；无有效参数（含双击启动）时弹出图片选择对话框。
+            string imagePath;
+            if (CommandLineImageArgument.TryResolve(e.Args, out imagePath))
+            {
+                ShowViewer(imagePath);
+                return;
+            }
+
+            PickImageAndView();
+        }
+
+        private void ShowViewer(string imagePath)
+        {
             Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动模式判定：独立查看器，" + imagePath, null);
             ApplicationThemeManager.Apply(ApplicationTheme.Dark);
             var viewer = new StandaloneViewerWindow(imagePath);
@@ -35,22 +36,24 @@ namespace ImageViewer.App
             viewer.Show();
         }
 
-        // 无有效图片参数：显示简短用法提示，用户确认后以退出码 2 结束进程。
-        private void ShowUsageAndExit()
+        // 无有效图片参数（含双击 exe）：弹图片选择对话框，选中即看图、取消则退出，不打开空白窗口。
+        private void PickImageAndView()
         {
-            var paths = ImageViewerPaths.ForCurrentUser();
-            AppLogging.Initialize(paths.LogsDirectory, LogSeverity.Error);
-            AppLogging.RegisterGlobalExceptionHandlers();
-            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动缺少有效图片参数，显示用法提示后退出", null);
-            // 显式退出：避免关闭提示窗时 WPF 以默认退出码 0 自动结束，确保以退出码 2 表示用法错误。
-            ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            var dialog = new Wpf.Ui.Controls.MessageBox
+            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动无有效图片参数，打开图片选择对话框", null);
+            var dialog = new OpenFileDialog
             {
-                Title = "ImageViewer",
-                Content = "请通过命令行传入单个 jpg/png/bmp 图片路径，例如：\nImageViewer.exe \"D:\\photos\\a.jpg\"",
-                PrimaryButtonText = "退出"
+                Title = "选择图片",
+                Filter = "图片 (*.jpg;*.png;*.bmp)|*.jpg;*.png;*.bmp|所有文件 (*.*)|*.*",
+                CheckFileExists = true
             };
-            dialog.ShowDialogAsync().ContinueWith(_ => Dispatcher.Invoke(new Action(() => Shutdown(2))));
+            if (dialog.ShowDialog() == true && !String.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                ShowViewer(dialog.FileName);
+                return;
+            }
+
+            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "未选择图片，退出", null);
+            Shutdown();
         }
     }
 }

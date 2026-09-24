@@ -89,35 +89,6 @@ namespace ImageViewer.App.Standalone
             UpdateThumbnailSelection(index);
             Keyboard.Focus(this);
             Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器已打开：" + imagePath + "（同目录 " + images.Count + " 张）", null);
-            // 推迟到窗口显示完成后再弹引导：在 Loaded 内同步 ShowDialog 会让主窗口停在未完成显示状态。
-            Dispatcher.BeginInvoke(new Action(PromptForDefaultViewerIfNeeded));
-        }
-
-        // 首启引导：满足条件时询问是否设为默认图片查看器；选择持久化，不阻塞看图。
-        private void PromptForDefaultViewerIfNeeded()
-        {
-            if (!associations.ShouldPromptForDefaultViewer()) return;
-            Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "弹出首启默认查看器引导", null);
-            var dialog = new Wpf.Ui.Controls.MessageBox
-            {
-                Title = "设为默认图片查看器",
-                Content = "将 ImageViewer 设为默认图片查看器？Windows 不允许程序自动设为默认，需在随后打开的系统设置里确认。",
-                PrimaryButtonText = "设为默认",
-                SecondaryButtonText = "以后再说"
-            };
-            dialog.ShowDialogAsync().ContinueWith(result => Dispatcher.Invoke(() =>
-            {
-                if (result.Result == Wpf.Ui.Controls.MessageBoxResult.Primary)
-                {
-                    Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "用户选择设为默认图片查看器", null);
-                    ShowAssociationStatus(associations.Register());
-                    associations.OpenDefaultAppsSettings();
-                }
-                else if (result.Result == Wpf.Ui.Controls.MessageBoxResult.Secondary)
-                {
-                    associations.DismissDefaultViewerPrompt();
-                }
-            }));
         }
 
         private void OnClosed(object sender, EventArgs e)
@@ -130,6 +101,8 @@ namespace ImageViewer.App.Standalone
                 thumbnailList = null;
             }
             Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器已关闭：" + imagePath, null);
+            // 显式关停模式下，关闭看图窗口即结束进程。
+            Application.Current.Shutdown();
         }
 
         private static string ResolveWindowStatePath()

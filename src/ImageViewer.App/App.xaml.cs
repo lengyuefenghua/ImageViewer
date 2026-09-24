@@ -36,7 +36,7 @@ namespace ImageViewer.App
             ContinueStartup();
         }
 
-        // 命令行图片参数优先；无有效参数（含双击启动）时弹出图片选择对话框。
+        // 命令行图片参数优先；无有效参数（含双击启动）时打开空白查看器，由右键菜单打开图片。
         private void ContinueStartup()
         {
             string imagePath;
@@ -46,7 +46,8 @@ namespace ImageViewer.App
                 return;
             }
 
-            PickImageAndView();
+            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动无有效图片参数，打开空白查看器", null);
+            ShowViewer(null);
         }
 
         private void ShowViewer(string imagePath)
@@ -56,26 +57,6 @@ namespace ImageViewer.App
             var viewer = new StandaloneViewerWindow(imagePath);
             MainWindow = viewer;
             viewer.Show();
-        }
-
-        // 无有效图片参数（含双击 exe）：弹图片选择对话框，选中即看图、取消则退出，不打开空白窗口。
-        private void PickImageAndView()
-        {
-            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动无有效图片参数，打开图片选择对话框", null);
-            var dialog = new OpenFileDialog
-            {
-                Title = "选择图片",
-                Filter = "图片 (*.jpg;*.png;*.bmp)|*.jpg;*.png;*.bmp|所有文件 (*.*)|*.*",
-                CheckFileExists = true
-            };
-            if (dialog.ShowDialog() == true && !String.IsNullOrWhiteSpace(dialog.FileName))
-            {
-                ShowViewer(dialog.FileName);
-                return;
-            }
-
-            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "未选择图片，退出", null);
-            Shutdown();
         }
 
         // 首启引导：询问是否设为默认图片查看器，按选择注册或持久化拒绝，然后继续启动。

@@ -9,9 +9,9 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using ImageViewer.App.Runtime;
-using ImageViewer.App.Services;
 using ImageViewer.Services;
 using ImageViewer.App.ViewModels.Viewer;
+using ImageViewer.App.Views;
 using ImageViewer.Core.Diagnostics;
 using Microsoft.Win32;
 using Wpf.Ui.Controls;
@@ -24,9 +24,8 @@ namespace ImageViewer.App.Standalone
         private const string LoggerName = "ImageViewer";
         private const int WmNcLButtonDoubleClick = 0x00A3;
         private const int TitleBarIconSize = 24;
-        private readonly string imagePath;
+        private string imagePath;
         private readonly ImageViewerViewModel viewer;
-        private readonly ViewerAssociationService associations;
         private readonly TransformGroup surfaceTransform = new TransformGroup();
         private readonly ScaleTransform surfaceScale = new ScaleTransform();
         private readonly TranslateTransform surfaceTranslate = new TranslateTransform();
@@ -41,17 +40,12 @@ namespace ImageViewer.App.Standalone
         private WindowStyle windowStyleBeforeFullScreen;
         private ResizeMode resizeModeBeforeFullScreen;
 
+        // imagePath 允许为空：无参数启动时打开空白窗口，由右键菜单「打开图片」选择文件。
         public StandaloneViewerWindow(string imagePath)
         {
-            if (String.IsNullOrWhiteSpace(imagePath)) throw new ArgumentException("图片路径不能为空。", "imagePath");
-
             this.imagePath = imagePath;
             viewer = new ImageViewerViewModel();
             viewer.SetEscapeAction(Close);
-            // 机器级写 HKLM，用户级写 HKCU；两者都指向本进程 exe。
-            associations = new ViewerAssociationService(
-                new FileAssociationService(Registry.LocalMachine),
-                new FileAssociationService());
             DataContext = viewer;
 
             InitializeComponent();
@@ -60,7 +54,7 @@ namespace ImageViewer.App.Standalone
             surfaceTransform.Children.Add(surfaceTranslate);
             ImageSurface.RenderTransformOrigin = new Point(0, 0);
             ImageSurface.RenderTransform = surfaceTransform;
-            Title = Path.GetFileName(imagePath);
+            Title = String.IsNullOrWhiteSpace(imagePath) ? "ImageViewer" : Path.GetFileName(imagePath);
             viewer.PropertyChanged += OnViewerPropertyChanged;
             ApplyTitleBarIcon();
             windowStatePath = ResolveWindowStatePath();
@@ -69,13 +63,29 @@ namespace ImageViewer.App.Standalone
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            images = ViewerImageDirectoryScanner.Scan(imagePath);
+            if (String.IsNullOrWhiteSpace(imagePath))
+            {
+                // 空白窗口：等待用户从右键菜单打开图片。
+                Keyboard.Focus(this);
+                return;
+            }
+
+            OpenImage(imagePath);
+        }
+
+        // 打开（或切换）一张图片：扫描同目录、建立结果集与缩略图，并定位到该图。
+        private void OpenImage(string path)
+        {
+            if (String.IsNullOrWhiteSpace(path)) return;
+
+            imagePath = path;
+            images = ViewerImageDirectoryScanner.Scan(path);
             viewer.SetResultSet(images);
 
             var index = 0;
             for (var candidate = 0; candidate < images.Count; candidate++)
             {
-                if (String.Equals(images[candidate], imagePath, StringComparison.OrdinalIgnoreCase))
+                if (String.Equals(images[candidate], path, StringComparison.OrdinalIgnoreCase))
                 {
                     index = candidate;
                     break;
@@ -83,12 +93,32 @@ namespace ImageViewer.App.Standalone
             }
 
             OpenImageAt(index);
+            if (thumbnailList != null)
+            {
+                thumbnailList.Dispose();
+                thumbnailList = null;
+            }
             thumbnailList = new ViewerThumbnailListViewModel(images);
             ThumbnailListBox.ItemsSource = thumbnailList.Items;
             ThumbnailPane.Visibility = thumbnailList.IsVisible ? Visibility.Visible : Visibility.Collapsed;
             UpdateThumbnailSelection(index);
             Keyboard.Focus(this);
-            Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器已打开：" + imagePath + "（同目录 " + images.Count + " 张）", null);
+            Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器已打开：" + path + "（同目录 " + images.Count + " 张）", null);
+        }
+
+        // 右键菜单「打开图片」：由用户主动选择文件后打开。
+        private void OpenImageClick(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "打开图片",
+                Filter = "图片 (*.jpg;*.png;*.bmp)|*.jpg;*.png;*.bmp|所有文件 (*.*)|*.*",
+                CheckFileExists = true
+            };
+            if (dialog.ShowDialog() == true && !String.IsNullOrWhiteSpace(dialog.FileName))
+            {
+                OpenImage(dialog.FileName);
+            }
         }
 
         private void OnClosed(object sender, EventArgs e)
@@ -478,37 +508,10 @@ namespace ImageViewer.App.Standalone
             Close();
         }
 
-        private void RegisterAssociationsClick(object sender, RoutedEventArgs e)
+        private void OpenSettingsClick(object sender, RoutedEventArgs e)
         {
-            ShowAssociationStatus(associations.Register());
-        }
-
-        private void UnregisterAssociationsClick(object sender, RoutedEventArgs e)
-        {
-            ShowAssociationStatus(associations.Unregister());
-        }
-
-        private void OpenDefaultAppsSettingsClick(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                associations.OpenDefaultAppsSettings();
-            }
-            catch (Exception error)
-            {
-                ShowAssociationStatus("打开系统默认应用设置失败：" + error.Message);
-            }
-        }
-
-        private void ShowAssociationStatus(string status)
-        {
-            var dialog = new Wpf.Ui.Controls.MessageBox
-            {
-                Title = "图片文件关联",
-                Content = status,
-                PrimaryButtonText = "确定"
-            };
-            dialog.ShowDialogAsync();
+            var settings = new SettingsWindow { Owner = this };
+            settings.ShowDialog();
         }
 
         private void CopyPathClick(object sender, RoutedEventArgs e)

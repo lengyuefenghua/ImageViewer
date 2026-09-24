@@ -57,6 +57,8 @@
       <Grid Grid.Row="0" Grid.Column="0" x:Name="ViewportHost" ClipToBounds="True" SizeChanged="ViewportHost_SizeChanged" MouseWheel="ViewportHost_MouseWheel" MouseLeftButtonDown="ViewportHost_MouseLeftButtonDown" MouseMove="ViewportHost_MouseMove" MouseLeftButtonUp="ViewportHost_MouseLeftButtonUp" MouseLeave="ViewportHost_MouseLeave">
         <Grid.ContextMenu>
           <ContextMenu>
+            <MenuItem Header="打开图片..." Click="OpenImageClick" />
+            <Separator />
             <MenuItem Header="适应窗口" Click="FitClick" />
             <MenuItem Header="100%" Click="ActualSizeClick" />
             <Separator />
@@ -68,9 +70,7 @@
             <Separator />
             <MenuItem x:Name="FullScreenMenuItem" Header="全屏" Click="FullScreenClick" />
             <Separator />
-            <MenuItem Header="设为默认图片查看器" Click="RegisterAssociationsClick" />
-            <MenuItem Header="取消图片关联" Click="UnregisterAssociationsClick" />
-            <MenuItem Header="打开默认应用设置" Click="OpenDefaultAppsSettingsClick" />
+            <MenuItem Header="设置..." Click="OpenSettingsClick" />
             <Separator />
             <MenuItem Header="退出" Click="ExitClick" />
           </ContextMenu>

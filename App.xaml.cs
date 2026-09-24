@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
@@ -75,10 +76,10 @@ namespace ImageViewer
         // 命令行图片参数优先；无有效参数（含双击启动）时打开空白查看器，由右键菜单打开图片。
         private void ContinueStartup()
         {
-            string imagePath;
-            if (CommandLineImageArgument.TryResolve(startupArgs, out imagePath))
+            IReadOnlyList<string> imagePaths;
+            if (CommandLineImageArgument.TryResolveAll(startupArgs, out imagePaths))
             {
-                ShowViewer(imagePath);
+                ShowViewer(imagePaths);
                 return;
             }
 
@@ -86,10 +87,10 @@ namespace ImageViewer
             ShowViewer(null);
         }
 
-        private void ShowViewer(string imagePath)
+        private void ShowViewer(IReadOnlyList<string> imagePaths)
         {
-            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动模式判定：独立查看器，" + imagePath, null);
-            var viewer = new StandaloneViewerWindow(imagePath);
+            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动模式判定：独立查看器，" + (imagePaths == null ? 0 : imagePaths.Count) + " 张", null);
+            var viewer = new StandaloneViewerWindow(imagePaths);
             MainWindow = viewer;
             viewer.Show();
             // 跟随系统主题时订阅系统深浅色变化。

@@ -134,6 +134,53 @@ namespace ImageViewer.Tests.Standalone
             Assert.Empty(ViewerImageDirectoryScanner.Scan("   "));
         }
 
+        [Fact]
+        public void EnumerateSiblingDirectories_returns_all_siblings_in_natural_order_including_current()
+        {
+            var parent = CreateTempDirectory();
+            try
+            {
+                var two = Directory.CreateDirectory(Path.Combine(parent, "2")).FullName;
+                var ten = Directory.CreateDirectory(Path.Combine(parent, "10")).FullName;
+                var a = Directory.CreateDirectory(Path.Combine(parent, "a")).FullName;
+                var b = Directory.CreateDirectory(Path.Combine(parent, "B")).FullName;
+
+                var result = ViewerImageDirectoryScanner.EnumerateSiblingDirectories(ten);
+
+                Assert.Equal(new[] { two, ten, a, b }, result);
+            }
+            finally
+            {
+                DeleteDirectoryQuietly(parent);
+            }
+        }
+
+        [Fact]
+        public void EnumerateSiblingDirectories_returns_only_itself_when_parent_has_no_other_subdirectories()
+        {
+            var parent = CreateTempDirectory();
+            try
+            {
+                var only = Directory.CreateDirectory(Path.Combine(parent, "only")).FullName;
+
+                var result = ViewerImageDirectoryScanner.EnumerateSiblingDirectories(only);
+
+                Assert.Equal(new[] { only }, result);
+            }
+            finally
+            {
+                DeleteDirectoryQuietly(parent);
+            }
+        }
+
+        [Fact]
+        public void EnumerateSiblingDirectories_returns_empty_for_a_blank_path()
+        {
+            Assert.Empty(ViewerImageDirectoryScanner.EnumerateSiblingDirectories(null));
+            Assert.Empty(ViewerImageDirectoryScanner.EnumerateSiblingDirectories(""));
+            Assert.Empty(ViewerImageDirectoryScanner.EnumerateSiblingDirectories("   "));
+        }
+
         private static string CreateTempDirectory()
         {
             var path = Path.Combine(Path.GetTempPath(), "idv-scan-" + Guid.NewGuid().ToString("N"));

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using ImageViewer.Standalone;
 using Xunit;
@@ -114,6 +115,32 @@ namespace ImageViewer.Tests.Standalone
             {
                 DeleteQuietly(name);
             }
+        }
+
+        [Fact]
+        public void TryResolveAll_returns_all_valid_images_in_order_skipping_invalid()
+        {
+            var first = WriteTempImage(".jpg");
+            var second = WriteTempImage(".png");
+            try
+            {
+                IReadOnlyList<string> resolved;
+                Assert.True(CommandLineImageArgument.TryResolveAll(new[] { "missing.jpg", first, "note.txt", second }, out resolved));
+                Assert.Equal(new[] { first, second }, resolved);
+            }
+            finally
+            {
+                DeleteQuietly(first);
+                DeleteQuietly(second);
+            }
+        }
+
+        [Fact]
+        public void TryResolveAll_returns_false_when_nothing_is_valid()
+        {
+            IReadOnlyList<string> resolved;
+            Assert.False(CommandLineImageArgument.TryResolveAll(null, out resolved));
+            Assert.False(CommandLineImageArgument.TryResolveAll(new[] { "missing.jpg", "x.gif", "   " }, out resolved));
         }
 
         private static string WriteTempImage(string extension)

@@ -1,0 +1,23 @@
+# .NET 构建产物
+[Bb]in/
+[Oo]bj/
+build/
+*.user
+*.suo
+
+# 测试输出
+TestResults/
+
+# 打包输出
+dist/
+
+# 运行时数据与日志
+*.log
+
+# IDE
+.vs/
+.idea/
+
+# 操作系统
+Thumbs.db
+Desktop.ini

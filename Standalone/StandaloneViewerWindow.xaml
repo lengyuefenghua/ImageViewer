@@ -1,6 +1,6 @@
-<ui:FluentWindow x:Class="ImageViewer.Standalone.StandaloneViewerWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" Icon="/ImageViewer.ico" Width="1100" Height="800" WindowStartupLocation="CenterScreen" Background="#FF1E1E1E" Focusable="True" SourceInitialized="OnSourceInitialized" Loaded="OnLoaded" Closed="OnClosed" PreviewKeyDown="OnPreviewKeyDown">
+<ui:FluentWindow x:Class="ImageViewer.Standalone.StandaloneViewerWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" Icon="/ImageViewer.ico" Width="1100" Height="800" WindowStartupLocation="CenterScreen" Background="{DynamicResource ApplicationBackgroundBrush}"                  Focusable="True" SourceInitialized="OnSourceInitialized" Loaded="OnLoaded" Closing="OnClosing" Closed="OnClosed" PreviewKeyDown="OnPreviewKeyDown">
   <DockPanel>
-    <ui:TitleBar x:Name="ViewerTitleBar" DockPanel.Dock="Top" Height="30" FontSize="15" Padding="0" Title="{Binding Title, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}">
+    <ui:TitleBar x:Name="ViewerTitleBar" DockPanel.Dock="Top" Background="{DynamicResource LayerFillColorDefaultBrush}" Height="30" FontSize="15" Padding="0" Title="{Binding Title, RelativeSource={RelativeSource AncestorType=ui:FluentWindow}}">
       <ui:TitleBar.Header>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsHitTestVisible="False" Margin="16,0,0,0">
           <Image x:Name="AppIcon" Height="24" Margin="0,0,8,0" />
@@ -18,11 +18,11 @@
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
       <!-- 右侧缩略图列：纯内存加载，默认显示，T 键或右键菜单折叠。 -->
-      <Border x:Name="ThumbnailPane" Grid.Row="0" Grid.Column="1" Width="140" Margin="8,0,0,0" Background="#FF161616" Visibility="Collapsed">
+      <Border x:Name="ThumbnailPane" Grid.Row="0" Grid.Column="1" Width="140" Margin="8,0,0,0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Visibility="Collapsed">
         <ListBox x:Name="ThumbnailListBox" Background="Transparent" BorderThickness="0" Padding="6,4" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" SelectionChanged="ThumbnailSelectionChanged" PreviewMouseWheel="ThumbnailListMouseWheel">
           <ListBox.Resources>
             <!-- 覆写 WPF UI 的选中背景键（模板内部触发器引用它），比默认亮蓝更低调。 -->
-            <SolidColorBrush x:Key="ListBoxItemSelectedBackgroundThemeBrush" Color="#33FFFFFF" />
+            <SolidColorBrush x:Key="ListBoxItemSelectedBackgroundThemeBrush" Color="{DynamicResource SubtleFillColorSecondary}" />
           </ListBox.Resources>
           <ListBox.ItemContainerStyle>
             <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
@@ -35,7 +35,7 @@
             <DataTemplate>
               <Grid Width="120" Height="90">
                 <Image Source="{Binding Bitmap}" Stretch="Uniform" />
-                <Border Background="#FF2A2A2A">
+                <Border Background="{DynamicResource ControlFillColorSecondaryBrush}">
                   <Border.Style>
                     <Style TargetType="Border">
                       <Setter Property="Visibility" Value="Collapsed" />
@@ -46,9 +46,9 @@
                       </Style.Triggers>
                     </Style>
                   </Border.Style>
-                  <TextBlock Text="无法预览" Foreground="#88FFFFFF" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  <TextBlock Text="无法预览" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
-                <TextBlock Text="{Binding Index}" Foreground="#CCFFFFFF" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,1" />
+                <TextBlock Text="{Binding Index}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,1" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -64,6 +64,7 @@
             <Separator />
             <MenuItem Header="复制图片" InputGestureText="Ctrl+C" Click="CopyFileClick" />
             <MenuItem Header="复制图片路径" Click="CopyPathClick" />
+            <MenuItem Header="复制到..." Click="CopyToClick" />
             <MenuItem Header="在资源管理器中显示" Click="RevealInExplorerClick" />
             <Separator />
             <MenuItem Header="缩略图列表" Click="ToggleThumbnailsClick" />
@@ -80,8 +81,8 @@
           <DrawingBrush TileMode="Tile" Viewport="0,0,16,16" ViewportUnits="Absolute">
             <DrawingBrush.Drawing>
               <DrawingGroup>
-                <GeometryDrawing Brush="#FF1E1E1E" Geometry="M0,0 H16 V16 H0 Z" />
-                <GeometryDrawing Brush="#FF2A2A2A" Geometry="M0,0 H8 V8 H0 Z M8,8 H16 V16 H8 Z" />
+                <GeometryDrawing Brush="{DynamicResource ApplicationBackgroundBrush}" Geometry="M0,0 H16 V16 H0 Z" />
+                <GeometryDrawing Brush="{DynamicResource ControlFillColorSecondaryBrush}" Geometry="M0,0 H8 V8 H0 Z M8,8 H16 V16 H8 Z" />
               </DrawingGroup>
             </DrawingBrush.Drawing>
           </DrawingBrush>

@@ -31,6 +31,7 @@ namespace ImageViewer.Standalone
         private readonly TranslateTransform surfaceTranslate = new TranslateTransform();
         private IReadOnlyList<string> images = new string[0];
         private string windowStatePath;
+        private Key? copyToShortcut;
         private ViewerThumbnailListViewModel thumbnailList;
         private bool syncingThumbnailSelection;
         private Point dragStart;
@@ -58,6 +59,7 @@ namespace ImageViewer.Standalone
             viewer.PropertyChanged += OnViewerPropertyChanged;
             ApplyTitleBarIcon();
             windowStatePath = ResolveWindowStatePath();
+            copyToShortcut = ResolveCopyShortcut();
             RestoreWindowState();
         }
 
@@ -121,9 +123,14 @@ namespace ImageViewer.Standalone
             }
         }
 
-        private void OnClosed(object sender, EventArgs e)
+        // 窗口关闭前保存状态：Closed 时窗口已销毁，RestoreBounds 失效，必须在 Closing 取。
+        private void OnClosing(object sender, CancelEventArgs e)
         {
             SaveWindowState();
+        }
+
+        private void OnClosed(object sender, EventArgs e)
+        {
             viewer.PropertyChanged -= OnViewerPropertyChanged;
             if (thumbnailList != null)
             {
@@ -138,6 +145,26 @@ namespace ImageViewer.Standalone
         private static string ResolveWindowStatePath()
         {
             return ImageViewerPaths.ConfigFilePath;
+        }
+
+        // 复制快捷键在窗口创建时读取一次；设置窗改动下次打开看图窗口生效。
+        private static Key? ResolveCopyShortcut()
+        {
+            var shortcut = CopySettingsStore.Load(ImageViewerPaths.ConfigFilePath).Shortcut;
+            Key key;
+            return Enum.TryParse(shortcut, true, out key) ? key : (Key?)null;
+        }
+
+        private void OpenCopyToWindow()
+        {
+            var path = String.IsNullOrEmpty(viewer.FilePath) ? imagePath : viewer.FilePath;
+            var window = new CopyToWindow(path) { Owner = this };
+            window.ShowDialog();
+        }
+
+        private void CopyToClick(object sender, RoutedEventArgs e)
+        {
+            OpenCopyToWindow();
         }
 
         // 恢复上次窗口大小/位置/最大化；文件缺失、损坏或位置越界时保持默认（1100×800 居中）。
@@ -368,6 +395,13 @@ namespace ImageViewer.Standalone
             if (e.Key == Key.T && (Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt)) == ModifierKeys.None)
             {
                 ToggleThumbnails();
+                e.Handled = true;
+                return;
+            }
+
+            if (copyToShortcut.HasValue && e.Key == copyToShortcut.Value)
+            {
+                OpenCopyToWindow();
                 e.Handled = true;
                 return;
             }

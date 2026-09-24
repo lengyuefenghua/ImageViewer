@@ -8,13 +8,13 @@ using ImageViewer.Services;
 using ImageViewer.Standalone;
 using ImageViewer.Core.Diagnostics;
 using Microsoft.Win32;
-using Wpf.Ui.Appearance;
 
 namespace ImageViewer
 {
     public partial class App : Application
     {
         private string[] startupArgs;
+        private AppTheme theme;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -26,6 +26,10 @@ namespace ImageViewer
                 paths.LogsDirectory,
                 AppLogging.ResolveMinimumLevel(AppSettingsFile.GetAll(ImageViewerPaths.ConfigFilePath)));
             AppLogging.RegisterGlobalExceptionHandlers();
+
+            // 应用外观主题（在任何窗口显示前）。
+            theme = AppThemeStore.Load(ImageViewerPaths.ConfigFilePath);
+            ThemeApplier.Apply(theme);
 
             // 提权子进程分支：以管理员身份完成 HKLM 注册/取消后立即退出，不显示任何界面。
             var elevatedAction = ElevatedCommand.Parse(startupArgs);
@@ -85,10 +89,11 @@ namespace ImageViewer
         private void ShowViewer(string imagePath)
         {
             Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动模式判定：独立查看器，" + imagePath, null);
-            ApplicationThemeManager.Apply(ApplicationTheme.Dark);
             var viewer = new StandaloneViewerWindow(imagePath);
             MainWindow = viewer;
             viewer.Show();
+            // 跟随系统主题时订阅系统深浅色变化。
+            ThemeApplier.FollowSystem(viewer, theme == AppTheme.System);
         }
 
         // 首启引导：询问是否设为默认图片查看器，按选择注册或持久化拒绝，然后继续启动。

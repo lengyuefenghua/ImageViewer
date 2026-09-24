@@ -8,6 +8,9 @@ build/
 # 测试输出
 TestResults/
 
+# 视觉验收证据（本地保留，不提交）
+docs/changes/**/evidence/
+
 # 打包输出
 dist/
 

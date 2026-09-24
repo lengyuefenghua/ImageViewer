@@ -23,18 +23,23 @@
 |---|---|
 | 运行时 | .NET Framework 4.7.2（x64） |
 | UI | WPF + [WPF UI](https://github.com/lepoco/wpfui)（`Wpf.Ui` 4.2.0） |
-| 日志 | NLog |
+| 日志 | 内置文件日志（`%AppData%\ImageViewer\Logs\`，无第三方依赖） |
 | 测试 | xUnit |
 
 ## 项目结构
 
 ```
-src/
-  ImageViewer.App   查看器窗口、看图视图模型、视口解码、文件关联、日志
-tests/
-  ImageViewer.App.Tests
-tools/              构建 / 测试 / 运行 / 发布脚本
-.github/workflows/  tag 触发的发布工作流
+ImageViewer.csproj        应用项目（位于仓库根）
+App.xaml / App.xaml.cs    应用入口、首启引导
+Standalone/               查看器窗口、目录扫描、缩略图、窗口状态、命令行参数
+Services/                 解码、文件关联
+Imaging/                  视口解码管线
+ViewModels/ Views/        视图模型与设置窗口
+Runtime/ Configuration/   日志、路径、配置
+Diagnostics/              日志抽象
+tests/ImageViewer.Tests   单元测试
+tools/                    构建 / 测试 / 运行 / 发布脚本
+.github/workflows/        tag 触发的发布工作流
 ```
 
 ## 构建与运行
@@ -67,4 +72,4 @@ tools\release.ps1 [-Tag vX.Y.Z] [-CreateTag]
 
 ## 数据目录
 
-窗口状态与日志写入 `%AppData%\ImageViewer\`（`Configuration\viewer-window.json`、`Logs\`），与其它程序隔离。
+用户配置（窗口大小/位置/最大化、首启偏好）写入 exe 同目录的 `ImageViewer.exe.config`；日志写入 `%AppData%\ImageViewer\Logs\`。

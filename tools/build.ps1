@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 # 统一 dotnet CLI 输出语言为英文，避免中文输出在不同控制台编码下乱码
 $env:DOTNET_CLI_UI_LANGUAGE = 'en'
 $Root = Split-Path -Parent $PSScriptRoot
-$Solution = Join-Path $Root 'src\ImageViewer.sln'
+$Solution = Join-Path $Root 'ImageViewer.sln'
 
 Get-Process -Name 'ImageViewer' -ErrorAction SilentlyContinue | ForEach-Object {
     Write-Output ("[build] Stopping running instance to avoid file locks: PID {0}" -f $_.Id)
@@ -18,7 +18,7 @@ Get-Process -Name 'ImageViewer' -ErrorAction SilentlyContinue | ForEach-Object {
 }
 Start-Sleep -Milliseconds 300
 
-Write-Output ("[build] Building ({0}): src\ImageViewer.sln" -f $Configuration)
+Write-Output ("[build] Building ({0}): ImageViewer.sln" -f $Configuration)
 dotnet build $Solution -c $Configuration -v quiet
 if ($LASTEXITCODE -ne 0) {
     throw ("[build] Build failed with exit code {0}." -f $LASTEXITCODE)

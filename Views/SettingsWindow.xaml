@@ -1,0 +1,21 @@
+<ui:FluentWindow x:Class="ImageViewer.Views.SettingsWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="设置" Width="480" Height="300" WindowStartupLocation="CenterOwner"
+                 Background="#FF1E1E1E" ResizeMode="NoResize" ShowInTaskbar="False">
+  <Grid Margin="20">
+    <StackPanel>
+      <TextBlock Text="文件关联" FontWeight="Bold" FontSize="16" Foreground="White" />
+      <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#CCFFFFFF"
+                 Text="把 ImageViewer 注册为 jpg/png/bmp 的打开候选。机器级注册需要管理员授权（弹出 UAC）；Windows 不允许程序自动设为默认，请在随后打开的系统设置中手动确认。" />
+      <TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="#FFE0A030" Margin="0,12,0,0" />
+      <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+        <ui:Button Content="注册图片关联" Click="RegisterClick" />
+        <ui:Button Content="取消关联" Click="UnregisterClick" Margin="8,0,0,0" />
+        <ui:Button Content="打开默认应用设置" Click="OpenDefaultAppsClick" Margin="8,0,0,0" />
+      </StackPanel>
+      <ui:Button Content="关闭" Click="CloseClick" Margin="0,24,0,0" HorizontalAlignment="Right" />
+    </StackPanel>
+  </Grid>
+</ui:FluentWindow>

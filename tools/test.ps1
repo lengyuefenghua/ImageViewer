@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $env:DOTNET_CLI_UI_LANGUAGE = 'en'
 $Root = Split-Path -Parent $PSScriptRoot
-$TestProject = Join-Path $Root 'tests\ImageViewer.App.Tests\ImageViewer.App.Tests.csproj'
+$TestProject = Join-Path $Root 'tests\ImageViewer.Tests\ImageViewer.Tests.csproj'
 
 if ($Build) {
     Write-Output '[test] -Build: running build entrypoint tools\build.ps1 first'

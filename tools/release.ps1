@@ -62,7 +62,7 @@ Get-Process -Name 'ImageViewer' -ErrorAction SilentlyContinue | ForEach-Object {
 Start-Sleep -Milliseconds 300
 
 # 3. Release x64 构建（构建产物直接输出到仓库根 build\Release）
-$Solution = Join-Path $Root 'src\ImageViewer.sln'
+$Solution = Join-Path $Root 'ImageViewer.sln'
 $ReleaseOutput = Join-Path $Root 'build\Release'
 if (Test-Path -LiteralPath $ReleaseOutput) { Remove-Item -LiteralPath $ReleaseOutput -Recurse -Force }
 Write-Output ("[release] Building Release x64: {0} (version {1})" -f $ProjectName, $version)

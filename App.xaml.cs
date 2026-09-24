@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
+using ImageViewer.Configuration;
 using ImageViewer.Runtime;
 using ImageViewer.Services;
 using ImageViewer.Standalone;
@@ -20,8 +22,18 @@ namespace ImageViewer
             // 显式关停：首启提示窗/图片选择对话框关闭时不能让 WPF 以「最后窗口关闭」自动结束进程。
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             var paths = ImageViewerPaths.ForCurrentUser();
-            AppLogging.Initialize(paths.LogsDirectory, LogSeverity.Error);
+            AppLogging.Initialize(
+                paths.LogsDirectory,
+                AppLogging.ResolveMinimumLevel(AppSettingsFile.GetAll(ImageViewerPaths.ConfigFilePath)));
             AppLogging.RegisterGlobalExceptionHandlers();
+
+            // 提权子进程分支：以管理员身份完成 HKLM 注册/取消后立即退出，不显示任何界面。
+            var elevatedAction = ElevatedCommand.Parse(startupArgs);
+            if (elevatedAction != ElevatedAction.None)
+            {
+                Shutdown(RunElevatedAssociationCommand(elevatedAction));
+                return;
+            }
 
             // 首启引导：任何启动方式（双击 exe、打开图片）都先询问是否设为默认查看器，答完再继续。
             var associations = new ViewerAssociationService(
@@ -34,6 +46,26 @@ namespace ImageViewer
             }
 
             ContinueStartup();
+        }
+
+        // runas 子进程：在当前（管理员）上下文写 HKLM，返回进程退出码。
+        private static int RunElevatedAssociationCommand(ElevatedAction action)
+        {
+            try
+            {
+                var machine = new FileAssociationService(Registry.LocalMachine);
+                var executablePath = Process.GetCurrentProcess().MainModule.FileName;
+                if (action == ElevatedAction.Register) machine.Register(executablePath);
+                else machine.Unregister(executablePath);
+
+                Diagnostics.Sink.Log(LogSeverity.Info, "ImageViewer", "提权文件关联操作完成：" + action, null);
+                return 0;
+            }
+            catch (Exception error)
+            {
+                Diagnostics.Sink.Log(LogSeverity.Error, "ImageViewer", "提权文件关联操作失败：" + action, error);
+                return 1;
+            }
         }
 
         // 命令行图片参数优先；无有效参数（含双击启动）时打开空白查看器，由右键菜单打开图片。

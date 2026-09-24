@@ -72,4 +72,4 @@ tools\release.ps1 [-Tag vX.Y.Z] [-CreateTag]
 
 ## 数据目录
 
-用户配置（窗口大小/位置/最大化、首启偏好）写入 exe 同目录的 `ImageViewer.exe.config`；日志写入 `%AppData%\ImageViewer\Logs\`。
+用户配置（窗口大小/位置/最大化、首启偏好）写入 exe 同目录的 `ImageViewer.exe.config`；日志写入 `%AppData%\ImageViewer\Logs\`。最低日志级别可在设置窗口调整（保存为配置文件的 `Logging.MinimumLevel`）。

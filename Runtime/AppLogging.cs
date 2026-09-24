@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using ImageViewer.Core.Diagnostics;
@@ -10,6 +11,9 @@ namespace ImageViewer.Runtime
     {
         private const string LoggerName = "ImageViewer";
 
+        // appSettings 中最低日志级别的键；非法/缺失时回落 Error。
+        public const string MinimumLevelKey = "Logging.MinimumLevel";
+
         private static FileLogSink sink;
         private static bool domainHandlersRegistered;
         private static bool dispatcherHandlerRegistered;
@@ -18,6 +22,21 @@ namespace ImageViewer.Runtime
         {
             sink = new FileLogSink(directory, minimumLevel);
             Diagnostics.Sink = sink;
+        }
+
+        // 从 appSettings 解析最低日志级别；缺失或非法值回落 Error。
+        public static LogSeverity ResolveMinimumLevel(IDictionary<string, string> settings)
+        {
+            string value;
+            LogSeverity parsed;
+            if (settings != null
+                && settings.TryGetValue(MinimumLevelKey, out value)
+                && Enum.TryParse(value, true, out parsed)
+                && Enum.IsDefined(typeof(LogSeverity), parsed))
+            {
+                return parsed;
+            }
+            return LogSeverity.Error;
         }
 
         // 未初始化时为 no-op：启动早期或测试环境调用不应抛异常。

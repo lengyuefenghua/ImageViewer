@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using ImageViewer.Runtime;
 using ImageViewer.Core.Diagnostics;
@@ -39,6 +40,34 @@ namespace ImageViewer.Tests.Runtime
                 {
                 }
             }
+        }
+
+        [Fact]
+        public void ResolveMinimumLevel_returns_error_when_key_is_missing()
+        {
+            Assert.Equal(LogSeverity.Error, AppLogging.ResolveMinimumLevel(new Dictionary<string, string>()));
+            Assert.Equal(LogSeverity.Error, AppLogging.ResolveMinimumLevel(null));
+        }
+
+        [Theory]
+        [InlineData("Debug", LogSeverity.Debug)]
+        [InlineData("Info", LogSeverity.Info)]
+        [InlineData("warn", LogSeverity.Warn)]
+        [InlineData("ERROR", LogSeverity.Error)]
+        [InlineData("Fatal", LogSeverity.Fatal)]
+        public void ResolveMinimumLevel_parses_configured_level_case_insensitively(string configured, LogSeverity expected)
+        {
+            var settings = new Dictionary<string, string> { { AppLogging.MinimumLevelKey, configured } };
+
+            Assert.Equal(expected, AppLogging.ResolveMinimumLevel(settings));
+        }
+
+        [Fact]
+        public void ResolveMinimumLevel_returns_error_when_value_is_invalid()
+        {
+            var settings = new Dictionary<string, string> { { AppLogging.MinimumLevelKey, "chatty" } };
+
+            Assert.Equal(LogSeverity.Error, AppLogging.ResolveMinimumLevel(settings));
         }
     }
 }

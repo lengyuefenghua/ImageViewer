@@ -31,6 +31,7 @@
 ## 日志
 - 所有行为变更必须评估并列出日志点（事件 + 级别 + 上下文）；外部边界、异常/降级/重试、状态转换、启动关闭、用户可见结果必须落地。优先用仓库已有 logger（`Diagnostics.Sink` / `AppLogging`，底层内置 `FileLogSink`，写 `%AppData%\ImageViewer\Logs\yyyy-MM-dd.log`），文案随仓库惯例（英文）。缺日志视为未完成。
 - 级别：异常/失败 = `Error`/`Fatal`；关键路径 = `Warn`；诊断 = `Info`/`Debug`。禁止敏感数据、循环刷屏、无信息占位日志。
+- 最低级别可在设置窗口切换，持久化在 `ImageViewer.exe.config` 的 `Logging.MinimumLevel`；缺失/非法回落 `Error`。
 
 ## 代码注释
 - 注释用中文；默认不写，但关键处必须有注释（非显然意图/不变量/边界/反直觉分支/公共契约）；禁止执行过程叙述、复述代码、变更史。

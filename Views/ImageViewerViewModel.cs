@@ -90,9 +90,9 @@ namespace ImageViewer.Views
         private static string FormatSize(long bytes)
         {
             if (bytes < 1024) return bytes + " B";
-            if (bytes < 1024L * 1024) return (bytes / 1024.0).ToString("0.0") + " KB";
-            if (bytes < 1024L * 1024 * 1024) return (bytes / (1024.0 * 1024)).ToString("0.0") + " MB";
-            return (bytes / (1024.0 * 1024 * 1024)).ToString("0.0") + " GB";
+            if (bytes < 1024L * 1024) return (bytes / 1024.0).ToString("0.00") + " KB";
+            if (bytes < 1024L * 1024 * 1024) return (bytes / (1024.0 * 1024)).ToString("0.00") + " MB";
+            return (bytes / (1024.0 * 1024 * 1024)).ToString("0.00") + " GB";
         }
         public string ImageModifiedDisplay
         {
@@ -100,7 +100,7 @@ namespace ImageViewer.Views
             {
                 return imageModifiedUtc == DateTime.MinValue
                     ? null
-                    : imageModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+                    : imageModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
             }
         }
         public int ImageBitDepth

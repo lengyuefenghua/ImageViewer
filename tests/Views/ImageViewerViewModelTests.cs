@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -121,6 +123,22 @@ namespace ImageViewer.Tests.Views
             {
                 DeleteQuietly(path);
             }
+        }
+
+        [Fact]
+        public void SetFileInfo_updates_size_and_modified_display_including_seconds()
+        {
+            var viewModel = new ImageViewerViewModel();
+            var changed = new List<string>();
+            PropertyChangedEventHandler handler = (sender, args) => changed.Add(args.PropertyName);
+            viewModel.PropertyChanged += handler;
+
+            viewModel.SetFileInfo(1536, new DateTime(2026, 9, 1, 8, 1, 42, DateTimeKind.Local));
+
+            Assert.Equal("1.50 KB", viewModel.ImageSizeDisplay);
+            Assert.Equal("2026-09-01 08:01:42", viewModel.ImageModifiedDisplay);
+            Assert.Contains("ImageSizeDisplay", changed);
+            Assert.Contains("ImageModifiedDisplay", changed);
         }
 
         [Fact]

@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace ImageViewer.Standalone
+namespace ImageViewer.Viewer
 {
-    // 命令行图片参数解析：只接受存在且扩展名属于白名单的图片路径，供独立查看器模式判定。
+    // 命令行图片参数解析：只接受存在且扩展名属于白名单的图片路径，供启动模式判定。
     public static class CommandLineImageArgument
     {
         public static bool TryResolve(string[] args, out string path)
@@ -17,7 +17,7 @@ namespace ImageViewer.Standalone
                 if (String.IsNullOrWhiteSpace(argument)) continue;
 
                 var candidate = argument.Trim();
-                if (!StandaloneImageFiles.IsWhitelisted(candidate)) continue;
+                if (!ImageFileWhitelist.IsWhitelisted(candidate)) continue;
                 if (!File.Exists(candidate)) continue;
 
                 path = Path.GetFullPath(candidate);
@@ -38,7 +38,7 @@ namespace ImageViewer.Standalone
                     if (String.IsNullOrWhiteSpace(argument)) continue;
 
                     var candidate = argument.Trim();
-                    if (!StandaloneImageFiles.IsWhitelisted(candidate)) continue;
+                    if (!ImageFileWhitelist.IsWhitelisted(candidate)) continue;
                     if (!File.Exists(candidate)) continue;
 
                     resolved.Add(Path.GetFullPath(candidate));

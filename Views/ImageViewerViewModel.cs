@@ -13,7 +13,7 @@ using ImageViewer.Services;
 
 namespace ImageViewer.Views
 {
-    // 独立查看器的看图视图模型：只承载结果集翻页、视口、底栏信息与指针取色，不涉及规则/复判/业务数据。
+    // 看图视图模型：只承载结果集翻页、视口、底栏信息与指针取色。
     public sealed class ImageViewerViewModel : BindableViewModel
     {
         private readonly Func<string, Size> imageSizeLoader;

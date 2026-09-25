@@ -6,9 +6,9 @@ using System.Runtime.InteropServices;
 using System.Security;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Standalone
+namespace ImageViewer.Viewer
 {
-    // 独立查看器模式的同目录扫描：Everything 唯一枚举规则的受控例外，只服务看图器的左右切换。
+    // 同目录扫描：只服务看图器的左右切换。
     public static class ViewerImageDirectoryScanner
     {
         private const string LoggerName = "ImageViewer";
@@ -51,7 +51,7 @@ namespace ImageViewer.Standalone
             {
                 foreach (var file in Directory.GetFiles(directory, "*", SearchOption.TopDirectoryOnly))
                 {
-                    if (StandaloneImageFiles.IsWhitelisted(file)) images.Add(file);
+                    if (ImageFileWhitelist.IsWhitelisted(file)) images.Add(file);
                 }
 
                 Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器目录扫描完成：" + directory + "，图片 " + images.Count + " 张", null);

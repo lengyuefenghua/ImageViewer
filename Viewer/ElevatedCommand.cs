@@ -1,7 +1,7 @@
 using System;
 using ImageViewer.Services;
 
-namespace ImageViewer.Standalone
+namespace ImageViewer.Viewer
 {
     public enum ElevatedAction
     {

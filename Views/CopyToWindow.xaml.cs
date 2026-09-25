@@ -8,7 +8,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using ImageViewer.Runtime;
-using ImageViewer.Standalone;
+using ImageViewer.Viewer;
 using Wpf.Ui.Controls;
 using WinMessageBox = System.Windows.MessageBox;
 using WinMessageBoxButton = System.Windows.MessageBoxButton;

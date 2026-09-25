@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Standalone
+namespace ImageViewer.Viewer
 {
     // 「复制到」配置：存 exe 旁 App.config 的 appSettings；目标按索引键保存，索引顺序即列表顺序。
     public static class CopySettingsStore

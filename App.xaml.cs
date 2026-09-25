@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using ImageViewer.Runtime;
 using ImageViewer.Services;
-using ImageViewer.Standalone;
+using ImageViewer.Viewer;
 using Microsoft.Win32;
 
 namespace ImageViewer
@@ -87,8 +87,8 @@ namespace ImageViewer
 
         private void ShowViewer(IReadOnlyList<string> imagePaths)
         {
-            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动模式判定：独立查看器，" + (imagePaths == null ? 0 : imagePaths.Count) + " 张", null);
-            var viewer = new StandaloneViewerWindow(imagePaths);
+            Diagnostics.Sink.Log(LogSeverity.Warn, "ImageViewer", "启动模式判定：查看器，" + (imagePaths == null ? 0 : imagePaths.Count) + " 张", null);
+            var viewer = new ViewerWindow(imagePaths);
             MainWindow = viewer;
             viewer.Show();
             // 跟随系统主题时订阅系统深浅色变化。

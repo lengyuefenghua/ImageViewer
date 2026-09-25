@@ -35,7 +35,7 @@
 ```
 ImageViewer.csproj        应用项目（位于仓库根）
 App.xaml / App.xaml.cs    应用入口、首启引导
-Standalone/               查看器窗口、目录扫描、缩略图、窗口状态、命令行参数
+Viewer/                    查看器窗口、目录扫描、缩略图、窗口状态、命令行参数
 Services/                 解码、文件关联
 Imaging/                  视口解码管线
 Views/                    窗口与视图模型

@@ -1,10 +1,10 @@
 using System;
 using System.IO;
 
-namespace ImageViewer.Standalone
+namespace ImageViewer.Viewer
 {
-    // 独立查看器模式共享的图片白名单判定：与主程序枚举白名单保持一致（jpg/png/bmp）。
-    internal static class StandaloneImageFiles
+    // 图片格式白名单（jpg/png/bmp）。
+    internal static class ImageFileWhitelist
     {
         private static readonly string[] WhitelistedExtensions = { ".jpg", ".png", ".bmp" };
 

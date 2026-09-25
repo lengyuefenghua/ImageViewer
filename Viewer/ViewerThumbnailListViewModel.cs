@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using ImageViewer.Services;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Standalone
+namespace ImageViewer.Viewer
 {
     // 缩略图列表项：Bitmap 为 null 且 IsPlaceholder 为真表示解码失败（不再重试）。
     public sealed class ViewerThumbnailItem : INotifyPropertyChanged
@@ -56,7 +56,7 @@ namespace ImageViewer.Standalone
         }
     }
 
-    // 独立查看器的左侧缩略图列表：纯内存（不写运行缓存/磁盘缓存），LRU 上限，
+    // 查看器缩略图列表：纯内存（不写磁盘缓存），LRU 上限，
     // Dispose 时取消在途加载并清空缓存；缩略图解码复用共享只读打开（不占用图片文件）。
     public sealed class ViewerThumbnailListViewModel : IDisposable
     {

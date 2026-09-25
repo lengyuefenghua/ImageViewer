@@ -1,9 +1,9 @@
 using System;
 using System.IO;
-using ImageViewer.Standalone;
+using ImageViewer.Viewer;
 using Xunit;
 
-namespace ImageViewer.Tests.Standalone
+namespace ImageViewer.Tests.Viewer
 {
     public sealed class ImageCopyServiceTests : IDisposable
     {

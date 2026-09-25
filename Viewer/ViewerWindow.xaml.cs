@@ -15,10 +15,10 @@ using ImageViewer.Views;
 using Microsoft.Win32;
 using Wpf.Ui.Controls;
 
-namespace ImageViewer.Standalone
+namespace ImageViewer.Viewer
 {
-    // 独立查看器窗口：只做看图（视口 + 底栏），不涉及规则、Everything 与运行缓存。
-    public partial class StandaloneViewerWindow : FluentWindow
+    // 查看器窗口：只做看图（视口 + 底栏）。
+    public partial class ViewerWindow : FluentWindow
     {
         private const string LoggerName = "ImageViewer";
         private const int WmNcLButtonDoubleClick = 0x00A3;
@@ -47,7 +47,7 @@ namespace ImageViewer.Standalone
         private ResizeMode resizeModeBeforeFullScreen;
 
         // startupPaths 允许为 null/空：无参数启动时打开空白窗口，由右键菜单「打开图片」选择文件。
-        public StandaloneViewerWindow(IReadOnlyList<string> startupPaths)
+        public ViewerWindow(IReadOnlyList<string> startupPaths)
         {
             this.startupPaths = startupPaths;
             imagePath = startupPaths != null && startupPaths.Count > 0 ? startupPaths[0] : null;
@@ -162,7 +162,7 @@ namespace ImageViewer.Standalone
             OpenImageAt(index);
             UpdateThumbnailSelection(viewer.CurrentPosition - 1);
             Keyboard.Focus(this);
-            Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器已打开：" + imagePath + "（共 " + images.Count + " 张）", null);
+            Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "查看器已打开：" + imagePath + "（共 " + images.Count + " 张）", null);
         }
 
         private void SetupSiblingDirectories(string path)
@@ -264,7 +264,7 @@ namespace ImageViewer.Standalone
             var openIndex = delta > 0 ? 0 : target.Item3.Count - 1;
             imagePath = target.Item3[openIndex];
             ApplyResultSet(openIndex);
-            Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "独立查看器切换同级目录：" + directory + "（图片 " + target.Item3.Count + " 张）", null);
+            Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "查看器切换同级目录：" + directory + "（图片 " + target.Item3.Count + " 张）", null);
             ShowFolderSwitchToast("已切换到 " + Path.GetFileName(directory) + "（" + target.Item3.Count + " 张）");
         }
 
@@ -340,7 +340,7 @@ namespace ImageViewer.Standalone
             {
                 if (String.IsNullOrWhiteSpace(path)) continue;
                 var candidate = path.Trim();
-                if (!StandaloneImageFiles.IsWhitelisted(candidate)) continue;
+                if (!ImageFileWhitelist.IsWhitelisted(candidate)) continue;
                 if (!File.Exists(candidate)) continue;
                 if (!result.Any(existing => String.Equals(existing, candidate, StringComparison.OrdinalIgnoreCase))) result.Add(candidate);
             }
@@ -361,7 +361,7 @@ namespace ImageViewer.Standalone
                 thumbnailList.Dispose();
                 thumbnailList = null;
             }
-            Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器已关闭：" + imagePath, null);
+            Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "查看器已关闭：" + imagePath, null);
             // 显式关停模式下，关闭看图窗口即结束进程。
             Application.Current.Shutdown();
         }
@@ -458,7 +458,7 @@ namespace ImageViewer.Standalone
             catch (Exception error)
             {
                 // 读取尺寸失败只影响初始视口估算，回落到 1×1 继续打开；解码失败由视图模型报错。
-                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "独立查看器读取图片尺寸失败：" + images[index], error);
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器读取图片尺寸失败：" + images[index], error);
             }
 
             var viewportWidth = (int)ViewportHost.ActualWidth;
@@ -499,7 +499,7 @@ namespace ImageViewer.Standalone
             }
             catch (Exception error)
             {
-                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "独立查看器读取文件信息失败：" + path, error);
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器读取文件信息失败：" + path, error);
             }
         }
 
@@ -687,12 +687,12 @@ namespace ImageViewer.Standalone
             try
             {
                 Clipboard.SetFileDropList(new System.Collections.Specialized.StringCollection { path });
-                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "独立查看器已复制图片文件：" + path, null);
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器已复制图片文件：" + path, null);
             }
             catch (Exception error)
             {
                 // 剪贴板可能被其他进程占用，失败不影响看图。
-                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器复制图片文件失败：" + path, error);
+                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "查看器复制图片文件失败：" + path, error);
             }
         }
 
@@ -739,7 +739,7 @@ namespace ImageViewer.Standalone
 
             isFullScreen = !isFullScreen;
             FullScreenMenuItem.Header = isFullScreen ? "退出全屏" : "全屏";
-            Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, isFullScreen ? "独立查看器进入全屏" : "独立查看器退出全屏", null);
+            Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, isFullScreen ? "查看器进入全屏" : "查看器退出全屏", null);
         }
 
         private void CopyFileClick(object sender, RoutedEventArgs e)
@@ -779,12 +779,12 @@ namespace ImageViewer.Standalone
             try
             {
                 Clipboard.SetText(path);
-                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "独立查看器已复制图片路径：" + path, null);
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器已复制图片路径：" + path, null);
             }
             catch (Exception error)
             {
                 // 剪贴板可能被其他进程占用，失败不影响看图。
-                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器复制图片路径失败：" + path, error);
+                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "查看器复制图片路径失败：" + path, error);
             }
         }
 
@@ -797,7 +797,7 @@ namespace ImageViewer.Standalone
             }
             catch (Exception error)
             {
-                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "独立查看器在资源管理器中显示失败：" + path, error);
+                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "查看器在资源管理器中显示失败：" + path, error);
             }
         }
 
@@ -821,7 +821,7 @@ namespace ImageViewer.Standalone
             catch (Exception error)
             {
                 // 图标是可选装饰，取不到时不阻塞看图。
-                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "独立查看器设置标题栏图标失败（可选装饰）。", error);
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器设置标题栏图标失败（可选装饰）。", error);
             }
         }
     }

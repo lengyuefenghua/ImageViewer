@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Standalone
+namespace ImageViewer.Viewer
 {
-    // 独立查看器的窗口偏好（大小/位置/最大化）：属用户配置，不是运行缓存。
+    // 查看器窗口偏好（大小/位置/最大化）：属用户配置。
     public sealed class ViewerWindowState
     {
         public double Width { get; set; }

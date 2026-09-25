@@ -8,8 +8,9 @@ using Microsoft.Win32;
 
 namespace ImageViewer.Services
 {
-    // 用户级（HKCU）图片文件关联：注册为 jpg/png/bmp 的打开候选与默认应用候选，
-    // 默认应用仍由用户在系统设置中确认；不写 HKLM、不写 UserChoice（Windows 保护项）。
+    // 图片文件关联：注册为 jpg/png/bmp 的打开候选，并把系统 ProgID 的默认动词指向本程序，
+    // 使其出现在「打开方式 / 默认应用」候选列表；但不写 UserChoice（Windows 哈希保护项），
+    // 因此不会自动成为默认——仍需用户在系统设置里手动选择一次才真正成为默认。
     public sealed class FileAssociationService
     {
         private const string LoggerName = "ImageViewer";
@@ -95,8 +96,8 @@ namespace ImageViewer.Services
                         openWith.SetValue(ProgId, new byte[0], RegistryValueKind.None);
                     }
                 }
-                // 系统 ProgID 的 shell 动词：Windows 10「打开方式/默认应用」弹窗据此识别能打开该类型的应用
-                // （与 MassiGra 同款机制）；只添加动词，不改 shell 默认值，避免抢占用户默认。
+                // 让本程序出现在「打开方式 / 默认应用」候选列表：在扩展名的系统 ProgID 下加自己的动词，
+                // 并把 shell 默认动词指向它（MassiGra 同款；只影响候选列表，不写 UserChoice，故不会自动成为默认）。
                 foreach (var extension in extensions)
                 {
                     var systemProgId = ReadExtensionProgId(extension);
@@ -109,7 +110,7 @@ namespace ImageViewer.Services
                     {
                         verb.SetValue(null, "用 ImageViewer 打开(&V)");
                     }
-                    // 抢占默认动词（MassiGra 同款）：先备份原值（幂等，已有备份不覆盖），再指向本程序。
+                    // 备份原默认动词（幂等，仅在未备份时记录），供取消注册时还原。
                     using (var shellKey = root.OpenSubKey(classesRootPath + "\\" + systemProgId + @"\shell"))
                     {
                         var originalVerb = shellKey == null ? null : shellKey.GetValue(null) as string;
@@ -169,20 +170,22 @@ namespace ImageViewer.Services
                 {
                     var systemProgId = ReadExtensionProgId(extension);
                     if (String.IsNullOrWhiteSpace(systemProgId)) continue;
-                    // 恢复被抢占的默认动词（读备份），再删除本程序的动词。
-                    using (var backupKey = root.OpenSubKey(backupPath))
+                    // 仅当默认动词仍指向本程序时才回退：优先还原备份，但备份动词若指向已不存在的程序
+                    // （如第三方遗留）则清除默认值，避免双击弹出指向死程序的「打开方式」。
+                    using (var shellKey = root.OpenSubKey(classesRootPath + "\\" + systemProgId + @"\shell", true))
                     {
-                        if (backupKey != null)
+                        if (shellKey != null && String.Equals(shellKey.GetValue(null) as string, OpenVerbName, StringComparison.OrdinalIgnoreCase))
                         {
-                            var originalVerb = backupKey.GetValue(systemProgId) as string;
-                            using (var shellKey = root.OpenSubKey(classesRootPath + "\\" + systemProgId + @"\shell", true))
+                            var originalVerb = ReadBackedUpVerb(systemProgId);
+                            if (!String.IsNullOrEmpty(originalVerb) && VerbTargetsExistingProgram(systemProgId, originalVerb))
                             {
-                                if (shellKey != null)
-                                {
-                                    if (String.IsNullOrEmpty(originalVerb)) shellKey.DeleteValue(null, false);
-                                    else shellKey.SetValue(null, originalVerb);
-                                }
+                                shellKey.SetValue(null, originalVerb);
                             }
+                            else
+                            {
+                                shellKey.DeleteValue(null, false);
+                            }
+                            Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "取消注册回退默认动词：" + systemProgId + " -> " + (originalVerb ?? "<清除>"), null);
                         }
                     }
                     root.DeleteSubKeyTree(classesRootPath + "\\" + systemProgId + @"\shell\" + OpenVerbName, false);
@@ -271,6 +274,45 @@ namespace ImageViewer.Services
             {
                 return extensionKey == null ? null : extensionKey.GetValue(null) as string;
             }
+        }
+
+        private string ReadBackedUpVerb(string systemProgId)
+        {
+            using (var backupKey = root.OpenSubKey(backupPath))
+            {
+                return backupKey == null ? null : backupKey.GetValue(systemProgId) as string;
+            }
+        }
+
+        // 动词的 open 命令是否指向一个存在的本地程序；非绝对路径（如 rundll32.exe）无法判断，保守视为有效。
+        private bool VerbTargetsExistingProgram(string systemProgId, string verbName)
+        {
+            using (var commandKey = root.OpenSubKey(classesRootPath + "\\" + systemProgId + @"\shell\" + verbName + @"\command"))
+            {
+                var command = commandKey == null ? null : commandKey.GetValue(null) as string;
+                return CommandTargetsExistingProgram(command);
+            }
+        }
+
+        private static bool CommandTargetsExistingProgram(string command)
+        {
+            if (String.IsNullOrWhiteSpace(command)) return true;
+            var trimmed = command.Trim();
+            string executable;
+            if (trimmed.StartsWith("\"", StringComparison.Ordinal))
+            {
+                var end = trimmed.IndexOf('"', 1);
+                if (end <= 1) return true;
+                executable = trimmed.Substring(1, end - 1);
+            }
+            else
+            {
+                var space = trimmed.IndexOf(' ');
+                executable = space > 0 ? trimmed.Substring(0, space) : trimmed;
+            }
+            // 只对绝对路径判存在性；相对/内置命令保守视为有效，避免误清。
+            if (!Path.IsPathRooted(executable)) return true;
+            return File.Exists(executable);
         }
 
         // 用户级候选：Windows 10 的「打开方式/默认应用」弹窗读取 FileExts\<ext>\OpenWithProgids，

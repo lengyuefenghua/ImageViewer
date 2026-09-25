@@ -384,14 +384,15 @@ namespace ImageViewer.Views
         private void OnClosing(object sender, CancelEventArgs e)
         {
             SaveWindowState();
+            // 句柄销毁前取消系统主题订阅：既避免 UnWatch 抛异常，也把窗口从静态 watcher 列表移除。
+            ThemeApplier.FollowSystem(this, false);
         }
 
         private void OnClosed(object sender, EventArgs e)
         {
             isClosed = true;
             viewer.PropertyChanged -= OnViewerPropertyChanged;
-            // 解绑系统主题订阅与消息钩子：避免静态 watcher / HwndSource 继续持有已关闭窗口。
-            ThemeApplier.FollowSystem(this, false);
+            // 解绑消息钩子：避免 HwndSource 继续持有已关闭窗口。
             if (windowSource != null)
             {
                 windowSource.RemoveHook(WindowMessageHook);

@@ -110,11 +110,11 @@
           <TextBlock x:Name="FolderSwitchText" Foreground="{DynamicResource TextFillColorPrimaryBrush}" FontSize="13" />
         </Border>
       </Grid>
-      <Border Grid.Row="1" Grid.ColumnSpan="2" VerticalAlignment="Bottom" Background="#B3000000" Padding="12,6" IsHitTestVisible="False">
+      <Border Grid.Row="1" Grid.ColumnSpan="2" VerticalAlignment="Bottom" Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}" Padding="12,6" IsHitTestVisible="False">
         <StackPanel Orientation="Horizontal">
-          <TextBlock Foreground="White" Text="{Binding ImageDimensionsWithDepth}" Margin="0,0,12,0" />
-          <TextBlock Foreground="#66FFFFFF" Text="│" Margin="0,0,12,0" />
-          <TextBlock Foreground="White" Margin="0,0,12,0">
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding ImageDimensionsWithDepth}" Margin="0,0,12,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="│" Margin="0,0,12,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,12,0">
             <TextBlock.Text>
               <MultiBinding StringFormat="{}{0}/{1}">
                 <Binding Path="CurrentPosition" />
@@ -122,10 +122,10 @@
               </MultiBinding>
             </TextBlock.Text>
           </TextBlock>
-          <TextBlock Foreground="#66FFFFFF" Text="│" Margin="0,0,12,0" />
-          <TextBlock Foreground="White" Text="{Binding ZoomPercent, StringFormat={}{0}%}" Margin="0,0,12,0" />
-          <TextBlock Foreground="#66FFFFFF" Text="│" Margin="0,0,12,0" />
-          <TextBlock Foreground="White" Margin="0,0,12,0">
+          <TextBlock Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="│" Margin="0,0,12,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding ZoomPercent, StringFormat={}{0}%}" Margin="0,0,12,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="│" Margin="0,0,12,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,12,0">
             <TextBlock.Text>
               <MultiBinding StringFormat="{}{0} / {1}">
                 <Binding Path="ImageSizeDisplay" />
@@ -133,14 +133,14 @@
               </MultiBinding>
             </TextBlock.Text>
           </TextBlock>
-          <TextBlock Foreground="#66FFFFFF" Text="│" Margin="0,0,12,0" />
-          <TextBlock Foreground="White" Text="{Binding ImageModifiedDisplay}" Margin="0,0,12,0" />
-          <TextBlock Foreground="#66FFFFFF" Text="│" Margin="0,0,12,0" />
-          <TextBlock Foreground="White" Text="{Binding PointerX, StringFormat=X {0}}" Margin="0,0,10,0" />
-          <TextBlock Foreground="White" Text="{Binding PointerY, StringFormat=Y {0}}" Margin="0,0,14,0" />
-          <TextBlock Foreground="White" Text="{Binding PixelR, StringFormat=R {0}}" Margin="0,0,10,0" />
-          <TextBlock Foreground="White" Text="{Binding PixelG, StringFormat=G {0}}" Margin="0,0,10,0" />
-          <TextBlock Foreground="White" Text="{Binding PixelB, StringFormat=B {0}}" />
+          <TextBlock Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="│" Margin="0,0,12,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding ImageModifiedDisplay}" Margin="0,0,12,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="│" Margin="0,0,12,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding PointerX, StringFormat=X {0}}" Margin="0,0,10,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding PointerY, StringFormat=Y {0}}" Margin="0,0,14,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding PixelR, StringFormat=R {0}}" Margin="0,0,10,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding PixelG, StringFormat=G {0}}" Margin="0,0,10,0" />
+          <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding PixelB, StringFormat=B {0}}" />
         </StackPanel>
       </Border>
       <Border Grid.Row="0" Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16,10" CornerRadius="4" Background="#CC7A1F1F">

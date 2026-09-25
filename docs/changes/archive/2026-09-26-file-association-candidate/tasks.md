@@ -30,9 +30,9 @@
 
 ## 4. 人工验收（OS shell 行为，无法单测）
 
-- [ ] 4.1 [人工] 构建后点「注册」→ ImageViewer 出现在 Windows 设置「选择应用」/ 右键「打开方式」候选列表；双击默认不变（不自动成为默认）。
-- [ ] 4.2 [人工] 在系统设置里手动选一次 ImageViewer → 双击图片直接打开。
-- [ ] 4.3 [人工] 点「取消注册」→ 不再遗留指向已删程序（ImageDataViewer）的死默认动词弹窗；原先的有效默认（若存在）被还原。
+- [x] 4.1 [人工] 构建后点「注册」→ ImageViewer 出现在 Windows 设置「选择应用」/ 右键「打开方式」候选列表；双击默认不变（不自动成为默认）。
+- [x] 4.2 [人工] 在系统设置里手动选一次 ImageViewer → 双击图片直接打开。
+- [x] 4.3 [人工] 点「取消注册」→ 不再遗留指向已删程序（ImageDataViewer）的死默认动词弹窗；原先的有效默认（若存在）被还原。
 
 ## 5. Self-review
 
@@ -40,4 +40,4 @@
 
 ## 6. Commit
 
-- [ ] 6.1 提交：`git add -- Services/FileAssociationService.cs tests/Services/FileAssociationServiceTests.cs docs/changes/2026-09-26-file-association-candidate && git commit -m "feat(file-association): 注册后进入候选列表，不自动设默认并健壮回退"`（只 commit 不 push）。
+- [x] 6.1 提交：`git add -- Services/FileAssociationService.cs tests/Services/FileAssociationServiceTests.cs docs/changes/2026-09-26-file-association-candidate && git commit -m "feat(file-association): 注册后进入候选列表，不自动设默认并健壮回退"`（只 commit 不 push）。

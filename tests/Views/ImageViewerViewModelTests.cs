@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading.Tasks;
 using ImageViewer.Views;
 using Xunit;
 
@@ -50,7 +51,7 @@ namespace ImageViewer.Tests.Views
         }
 
         [Fact]
-        public void Next_and_Previous_stay_within_bounds()
+        public async Task Next_and_Previous_stay_within_bounds()
         {
             var path = WriteTempImage(50, 50);
             try
@@ -59,13 +60,13 @@ namespace ImageViewer.Tests.Views
                 viewModel.SetResultSet(new[] { path, path });
                 viewModel.OpenAt(0, 50, 50, 100, 100);
 
-                viewModel.Previous();
+                await viewModel.PreviousAsync();
                 Assert.Equal(1, viewModel.CurrentPosition);
 
-                viewModel.Next();
+                await viewModel.NextAsync();
                 Assert.Equal(2, viewModel.CurrentPosition);
 
-                viewModel.Next();
+                await viewModel.NextAsync();
                 Assert.Equal(2, viewModel.CurrentPosition);
             }
             finally

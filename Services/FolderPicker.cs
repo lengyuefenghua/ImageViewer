@@ -32,8 +32,9 @@ namespace ImageViewer.Services
                 if (dialog.Show(owner) != 0) return null;
 
                 dialog.GetResult(out var result);
+                if (result == null) return null;
                 result.GetDisplayName(SigdnFileSysPath, out var path);
-                if (result != null) Marshal.ReleaseComObject(result);
+                Marshal.ReleaseComObject(result);
                 return path;
             }
             catch (Exception)

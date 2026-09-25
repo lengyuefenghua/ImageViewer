@@ -18,6 +18,10 @@ namespace ImageViewer.Views
     {
         private readonly Func<string, Size> imageSizeLoader;
         private readonly SynchronizationContext uiContext;
+        // 主图解码闸门：同时最多解码 1 张，避免快速翻页时多张大图并发解码造成内存峰值。
+        private readonly SemaphoreSlim decodeGate = new SemaphoreSlim(1, 1);
+        // 指针取色的复用缓冲，避免鼠标移动时反复分配。
+        private readonly byte[] pixelBuffer = new byte[4];
         private long loadGeneration;
         private Action escape;
         private ViewportState viewport;
@@ -142,19 +146,20 @@ namespace ImageViewer.Views
             Changed("CurrentPosition");
         }
 
-        public void Previous()
+        public async Task PreviousAsync()
         {
             if (currentIndex <= 0) return;
-            OpenResultAt(currentIndex - 1);
+            await OpenResultAtAsync(currentIndex - 1);
         }
 
-        public void Next()
+        public async Task NextAsync()
         {
             if (currentIndex < 0 || currentIndex >= resultSet.Count - 1) return;
-            OpenResultAt(currentIndex + 1);
+            await OpenResultAtAsync(currentIndex + 1);
         }
 
-        private void OpenResultAt(int index)
+        // 翻页读取尺寸放到线程池：网络盘/慢盘读图片头不再阻塞 UI。
+        private async Task OpenResultAtAsync(int index)
         {
             // 文件已被改名/移动/删除：更新位置并给出提示，不显示误导的 1×1 尺寸与巨大缩放。
             if (!File.Exists(resultSet[index]))
@@ -168,7 +173,7 @@ namespace ImageViewer.Views
             int width = 1, height = 1;
             try
             {
-                var size = BitmapSourceLoader.ReadDimensions(resultSet[index]);
+                var size = await ReadDimensionsAsync(resultSet[index]);
                 width = (int)size.Width;
                 height = (int)size.Height;
             }
@@ -181,10 +186,21 @@ namespace ImageViewer.Views
             OpenAt(index, width, height, viewportWidth, viewportHeight);
         }
 
-        public void HandleKey(string key)
+        // 测试可注入同步 loader；生产在后台线程读取（BitmapSourceLoader 返回 WPF Size，这里统一为 System.Drawing.Size）。
+        private Task<Size> ReadDimensionsAsync(string path)
         {
-            if (String.Equals(key, "Left", StringComparison.Ordinal)) Previous();
-            else if (String.Equals(key, "Right", StringComparison.Ordinal)) Next();
+            if (imageSizeLoader != null) return Task.FromResult(imageSizeLoader(path));
+            return Task.Run(() =>
+            {
+                var size = BitmapSourceLoader.ReadDimensions(path);
+                return new Size((int)size.Width, (int)size.Height);
+            });
+        }
+
+        public async Task HandleKeyAsync(string key)
+        {
+            if (String.Equals(key, "Left", StringComparison.Ordinal)) await PreviousAsync();
+            else if (String.Equals(key, "Right", StringComparison.Ordinal)) await NextAsync();
             else if (String.Equals(key, "Escape", StringComparison.Ordinal)) { var action = escape; if (action != null) action(); }
         }
 
@@ -239,8 +255,7 @@ namespace ImageViewer.Views
                 {
                     IsLoading = true;
                     var decodeWidth = imageWidth;
-                    DecodeTask = Task.Run(() => BitmapSourceLoader.LoadForDisplay(path, decodeWidth, imageHeight))
-                        .ContinueWith(task => CompleteDecode(task, path, generation, decodeWidth));
+                    DecodeTask = DecodeAsync(path, decodeWidth, imageHeight, generation);
                 }
                 else
                 {
@@ -273,39 +288,63 @@ namespace ImageViewer.Views
             Changed("IsLoading");
         }
 
-        private void CompleteDecode(Task<object> task, string path, long generation, int decodeWidth)
+        // 解码闸门：同时最多 1 张主图在解码；排队期间被更新请求取代的直接跳过，避免多张大图叠加占内存。
+        private async Task DecodeAsync(string path, int decodeWidth, int imageHeight, long generation)
         {
-            RunOnUi(() =>
+            await decodeGate.WaitAsync().ConfigureAwait(false);
+            try
             {
-                if (generation != loadGeneration || !String.Equals(path, FilePath, StringComparison.Ordinal)) return;
-
-                if (task.IsFaulted)
+                if (generation != Interlocked.Read(ref loadGeneration))
                 {
-                    var message = task.Exception == null ? "图片解码失败。" : task.Exception.GetBaseException().Message;
-                    // 主图解码失败是关键路径：必须带图片路径记 Error（显示占位图，进程不崩溃）。
-                    Diagnostics.Sink.Log(LogSeverity.Error, "ImageViewer", "图片解码失败：" + path, task.Exception);
-                    ErrorMessage = message;
-                    DisplayBitmap = null;
-                    displayedImageRectangle = Rectangle.Empty;
-                    imageWidth = 0;
-                    imageHeight = 0;
-                    Changed("ErrorMessage");
-                    Changed("DisplayBitmap");
-                    Changed("ImageDimensionsWithDepth");
-                    Changed("ImageDecodedSizeDisplay");
+                    Diagnostics.Sink.Log(LogSeverity.Debug, "ImageViewer", "过期解码请求跳过：" + path, null);
+                    return;
                 }
-                else
-                {
-                    DisplayBitmap = task.Result;
-                    Changed("DisplayBitmap");
-                    Changed("ImageBitDepth");
-                    Changed("ImageDimensionsWithDepth");
-                    Changed("ImageDecodedSizeDisplay");
-                }
+                var bitmap = await Task.Run(() => BitmapSourceLoader.LoadForDisplay(path, decodeWidth, imageHeight)).ConfigureAwait(false);
+                RunOnUi(() => CompleteDecodeSuccess(path, generation, bitmap));
+            }
+            catch (Exception error)
+            {
+                RunOnUi(() => CompleteDecodeFailure(path, generation, error));
+            }
+            finally
+            {
+                decodeGate.Release();
+            }
+        }
 
-                IsLoading = false;
-                Changed("IsLoading");
-            });
+        private void CompleteDecodeSuccess(string path, long generation, object bitmap)
+        {
+            if (generation != loadGeneration || !String.Equals(path, FilePath, StringComparison.Ordinal)) return;
+
+            DisplayBitmap = bitmap;
+            Changed("DisplayBitmap");
+            Changed("ImageBitDepth");
+            Changed("ImageDimensionsWithDepth");
+            Changed("ImageDecodedSizeDisplay");
+
+            IsLoading = false;
+            Changed("IsLoading");
+        }
+
+        private void CompleteDecodeFailure(string path, long generation, Exception error)
+        {
+            if (generation != loadGeneration || !String.Equals(path, FilePath, StringComparison.Ordinal)) return;
+
+            var message = error == null ? "图片解码失败。" : error.GetBaseException().Message;
+            // 主图解码失败是关键路径：必须带图片路径记 Error（显示占位图，进程不崩溃）。
+            Diagnostics.Sink.Log(LogSeverity.Error, "ImageViewer", "图片解码失败：" + path, error);
+            ErrorMessage = message;
+            DisplayBitmap = null;
+            displayedImageRectangle = Rectangle.Empty;
+            imageWidth = 0;
+            imageHeight = 0;
+            Changed("ErrorMessage");
+            Changed("DisplayBitmap");
+            Changed("ImageDimensionsWithDepth");
+            Changed("ImageDecodedSizeDisplay");
+
+            IsLoading = false;
+            Changed("IsLoading");
         }
 
         private void RunOnUi(Action action)
@@ -483,7 +522,7 @@ namespace ImageViewer.Views
                 && imagePoint.X < imageWidth && imagePoint.Y < imageHeight;
         }
 
-        internal static bool TrySampleRgb(BitmapSource source, Rectangle displayedRectangle, PointF imagePoint, out int r, out int g, out int b)
+        internal bool TrySampleRgb(BitmapSource source, Rectangle displayedRectangle, PointF imagePoint, out int r, out int g, out int b)
         {
             r = -1;
             g = -1;
@@ -499,11 +538,10 @@ namespace ImageViewer.Views
                 var converted = source.Format == PixelFormats.Bgra32
                     ? source
                     : new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
-                var pixel = new byte[4];
-                converted.CopyPixels(new System.Windows.Int32Rect(pixelX, pixelY, 1, 1), pixel, 4, 0);
-                b = pixel[0];
-                g = pixel[1];
-                r = pixel[2];
+                converted.CopyPixels(new System.Windows.Int32Rect(pixelX, pixelY, 1, 1), pixelBuffer, 4, 0);
+                b = pixelBuffer[0];
+                g = pixelBuffer[1];
+                r = pixelBuffer[2];
                 return true;
             }
             catch (Exception error)

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using ImageViewer.Runtime;
 
 namespace ImageViewer.Services
@@ -8,8 +9,8 @@ namespace ImageViewer.Services
     {
         private const string LoggerName = "ImageViewer";
 
-        // 复制图片到目标目录；冲突按 conflict 决定，Ask 时由 resolveConflict 给出用户选择。返回实际结果。
-        public static CopyResult Copy(
+        // 异步复制：冲突判定仍在调用线程（UI）同步询问，实际文件拷贝放到线程池，避免复制大图时冻结界面。
+        public static async Task<CopyResult> CopyAsync(
             string sourcePath,
             string targetDirectory,
             string fileName,
@@ -42,7 +43,7 @@ namespace ImageViewer.Services
                 }
             }
 
-            File.Copy(sourcePath, destination, true);
+            await Task.Run(() => File.Copy(sourcePath, destination, true)).ConfigureAwait(true);
             Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "已复制图片：" + sourcePath + " -> " + destination, null);
             return CopyResult.Copied;
         }

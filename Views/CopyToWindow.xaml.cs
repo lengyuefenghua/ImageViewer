@@ -30,6 +30,7 @@ namespace ImageViewer.Views
 
         private readonly string sourcePath;
         private readonly ObservableCollection<CopyTargetRow> rows = new ObservableCollection<CopyTargetRow>();
+        private bool copying;
 
         public CopyToWindow(string sourcePath)
         {
@@ -142,8 +143,9 @@ namespace ImageViewer.Views
             CopyRow(row);
         }
 
-        private void CopyRow(CopyTargetRow row)
+        private async void CopyRow(CopyTargetRow row)
         {
+            if (copying) return;
             if (String.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
                 StatusText.Text = "当前没有可复制的图片。";
@@ -156,9 +158,11 @@ namespace ImageViewer.Views
             }
 
             var fileName = CopyFileName.Build(Path.GetFileName(sourcePath), row.Suffix, CurrentTimestampFormat, DateTime.Now);
+            copying = true;
+            StatusText.Text = "正在复制…";
             try
             {
-                var result = ImageCopyService.Copy(sourcePath, row.Path, fileName, CurrentConflict, ResolveConflict);
+                var result = await ImageCopyService.CopyAsync(sourcePath, row.Path, fileName, CurrentConflict, ResolveConflict);
                 if (result == CopyResult.Copied)
                 {
                     // 成功即关闭（关闭会触发配置保存）；仅失败/跳过/取消时留在窗口提示。
@@ -172,6 +176,10 @@ namespace ImageViewer.Views
             {
                 StatusText.Text = "复制失败：" + error.Message;
                 Diagnostics.Sink.Log(LogSeverity.Error, "ImageViewer", "复制到目标失败：" + row.Path, error);
+            }
+            finally
+            {
+                copying = false;
             }
         }
 

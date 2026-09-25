@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -33,6 +34,8 @@ namespace ImageViewer.Views
         private int siblingDirectoryIndex = -1;
         private bool explicitList;
         private bool folderSwitchPromptOpen;
+        private bool isClosed;
+        private HwndSource windowSource;
         private DispatcherTimer folderToastTimer;
         private string windowStatePath;
         private Key? copyToShortcut;
@@ -68,7 +71,7 @@ namespace ImageViewer.Views
             RestoreWindowState();
         }
 
-        private void OnLoaded(object sender, RoutedEventArgs e)
+        private async void OnLoaded(object sender, RoutedEventArgs e)
         {
             if (startupPaths == null || startupPaths.Count == 0)
             {
@@ -77,43 +80,58 @@ namespace ImageViewer.Views
                 return;
             }
 
-            LoadStartupPaths();
+            try
+            {
+                await LoadStartupPathsAsync();
+            }
+            catch (Exception error)
+            {
+                Diagnostics.Sink.Log(LogSeverity.Error, LoggerName, "启动加载图片失败", error);
+            }
         }
 
         // 启动路径分派：单张优先尝试搜索结果直读，否则目录扫描+同级切换；多张按显式列表。
-        private void LoadStartupPaths()
+        private async Task LoadStartupPathsAsync()
         {
             if (startupPaths.Count == 1)
             {
                 var single = startupPaths[0];
                 IReadOnlyList<string> searchResults;
+                // 搜索结果直读已内置 300ms 预算，仍留在 UI 线程（Shell COM 需要 STA）。
                 if (SearchResultsProvider.TryGetSearchResultImages(single, out searchResults))
                 {
-                    LoadExplicitList(searchResults, IndexOfIgnoreCase(searchResults, single));
+                    await LoadExplicitListAsync(searchResults, IndexOfIgnoreCase(searchResults, single));
                     return;
                 }
 
-                LoadDirectoryContext(single);
+                await LoadDirectoryContextAsync(single);
                 return;
             }
 
-            LoadExplicitList(startupPaths, 0);
+            await LoadExplicitListAsync(startupPaths, 0);
         }
 
         // 目录上下文：扫描该目录、建立同级目录清单，定位到该图；左右到边界可切同级目录。
-        private void LoadDirectoryContext(string path)
+        private async Task LoadDirectoryContextAsync(string path)
         {
             if (String.IsNullOrWhiteSpace(path)) return;
 
             explicitList = false;
             imagePath = path;
-            images = ViewerImageDirectoryScanner.Scan(path);
-            SetupSiblingDirectories(path);
-            ApplyResultSet(IndexOfIgnoreCase(images, path));
+            // 目录扫描与同级目录枚举放到线程池：大目录/网络盘不再阻塞 UI。
+            images = await Task.Run(() => ViewerImageDirectoryScanner.Scan(path));
+            if (isClosed) return;
+
+            var siblings = await Task.Run(() => BuildSiblingDirectories(path));
+            if (isClosed) return;
+            siblingDirectories = siblings.Item1;
+            siblingDirectoryIndex = siblings.Item2;
+
+            await ApplyResultSetAsync(IndexOfIgnoreCase(images, path));
         }
 
         // 显式列表（多选/拖拽/粘贴/搜索结果）：保持传入顺序，不扫目录、不做同级切换。
-        private void LoadExplicitList(IReadOnlyList<string> paths, int index)
+        private async Task LoadExplicitListAsync(IReadOnlyList<string> paths, int index)
         {
             if (paths == null || paths.Count == 0) return;
 
@@ -124,7 +142,8 @@ namespace ImageViewer.Views
             if (index < 0) index = 0;
             if (index >= paths.Count) index = paths.Count - 1;
             imagePath = paths[index];
-            ApplyResultSet(index);
+            await ApplyResultSetAsync(index);
+            if (isClosed) return;
             ShowFolderSwitchToast("已打开 " + paths.Count + " 张（连续浏览）");
         }
 
@@ -147,8 +166,10 @@ namespace ImageViewer.Views
         }
 
         // 应用结果集：重建缩略图并打开指定下标。
-        private void ApplyResultSet(int index)
+        private async Task ApplyResultSetAsync(int index)
         {
+            if (isClosed) return;
+
             viewer.SetResultSet(images);
             if (thumbnailList != null)
             {
@@ -158,26 +179,27 @@ namespace ImageViewer.Views
             thumbnailList = new ViewerThumbnailListViewModel(images);
             ThumbnailListBox.ItemsSource = thumbnailList.Items;
             ThumbnailPane.Visibility = thumbnailList.IsVisible ? Visibility.Visible : Visibility.Collapsed;
-            OpenImageAt(index);
+            await OpenImageAtAsync(index);
+            if (isClosed) return;
             UpdateThumbnailSelection(viewer.CurrentPosition - 1);
             Keyboard.Focus(this);
             Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "查看器已打开：" + imagePath + "（共 " + images.Count + " 张）", null);
         }
 
-        private void SetupSiblingDirectories(string path)
+        // 纯函数：在线程池计算同级目录清单，避免在 UI 线程枚举目录。
+        private static Tuple<IReadOnlyList<string>, int> BuildSiblingDirectories(string path)
         {
-            siblingDirectories = new string[0];
-            siblingDirectoryIndex = -1;
             try
             {
                 var directory = Path.GetDirectoryName(path);
-                if (String.IsNullOrWhiteSpace(directory)) return;
-                siblingDirectories = ViewerImageDirectoryScanner.EnumerateSiblingDirectories(directory);
-                siblingDirectoryIndex = IndexOfIgnoreCase(siblingDirectories, directory);
+                if (String.IsNullOrWhiteSpace(directory)) return Tuple.Create<IReadOnlyList<string>, int>(new string[0], -1);
+                var directories = ViewerImageDirectoryScanner.EnumerateSiblingDirectories(directory);
+                return Tuple.Create(directories, IndexOfIgnoreCase(directories, directory));
             }
             catch (Exception error)
             {
                 Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "同级目录解析失败：" + path, error);
+                return Tuple.Create<IReadOnlyList<string>, int>(new string[0], -1);
             }
         }
 
@@ -192,7 +214,7 @@ namespace ImageViewer.Views
         }
 
         // 右键菜单「打开图片」：由用户主动选择文件后打开。
-        private void OpenImageClick(object sender, RoutedEventArgs e)
+        private async void OpenImageClick(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
             {
@@ -202,26 +224,27 @@ namespace ImageViewer.Views
             };
             if (dialog.ShowDialog() == true && !String.IsNullOrWhiteSpace(dialog.FileName))
             {
-                LoadDirectoryContext(dialog.FileName);
+                await LoadDirectoryContextAsync(dialog.FileName);
             }
         }
 
         // 左右翻页：集合内移动；目录模式下到边界先确认再切相邻同级目录。
-        private void Navigate(int delta)
+        private async Task NavigateAsync(int delta)
         {
             var position = viewer.CurrentPosition;
             var count = viewer.ResultCount;
-            if (delta > 0 && position < count) { viewer.HandleKey("Right"); return; }
-            if (delta < 0 && position > 1) { viewer.HandleKey("Left"); return; }
-            if (!explicitList) RequestAdjacentDirectory(delta);
+            if (delta > 0 && position < count) { await viewer.HandleKeyAsync("Right"); return; }
+            if (delta < 0 && position > 1) { await viewer.HandleKeyAsync("Left"); return; }
+            if (!explicitList) await RequestAdjacentDirectoryAsync(delta);
         }
 
         // 到当前目录首/尾时，先确认（主题化弹窗）再切相邻含图片同级目录；到端提示且不循环。
-        private async void RequestAdjacentDirectory(int delta)
+        private async Task RequestAdjacentDirectoryAsync(int delta)
         {
-            if (folderSwitchPromptOpen) return;
+            if (folderSwitchPromptOpen || isClosed) return;
 
-            var target = FindAdjacentDirectory(delta);
+            var target = await FindAdjacentDirectoryAsync(delta);
+            if (isClosed) return;
             if (target == null)
             {
                 ShowFolderSwitchToast(delta > 0 ? "已是最后一个含图片的文件夹" : "已是第一个含图片的文件夹");
@@ -256,27 +279,38 @@ namespace ImageViewer.Views
                 folderSwitchPromptOpen = false;
             }
 
-            if (answer != Wpf.Ui.Controls.MessageBoxResult.Primary) return;
+            if (isClosed || answer != Wpf.Ui.Controls.MessageBoxResult.Primary) return;
 
             siblingDirectoryIndex = target.Item2;
             images = target.Item3;
             var openIndex = delta > 0 ? 0 : target.Item3.Count - 1;
             imagePath = target.Item3[openIndex];
-            ApplyResultSet(openIndex);
+            try
+            {
+                await ApplyResultSetAsync(openIndex);
+            }
+            catch (Exception error)
+            {
+                Diagnostics.Sink.Log(LogSeverity.Error, LoggerName, "切换同级目录失败", error);
+                return;
+            }
+            if (isClosed) return;
             Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "查看器切换同级目录：" + directory + "（图片 " + target.Item3.Count + " 张）", null);
             ShowFolderSwitchToast("已切换到 " + Path.GetFileName(directory) + "（" + target.Item3.Count + " 张）");
         }
 
-        // 沿 delta 方向找最近的含图片同级目录（跳过空目录），返回 目录/下标/图片列表。
-        private Tuple<string, int, IReadOnlyList<string>> FindAdjacentDirectory(int delta)
+        // 沿 delta 方向找最近的含图片同级目录（跳过空目录），返回 目录/下标/图片列表；扫描在线程池执行。
+        private async Task<Tuple<string, int, IReadOnlyList<string>>> FindAdjacentDirectoryAsync(int delta)
         {
             if (siblingDirectories.Count == 0 || siblingDirectoryIndex < 0) return null;
 
             for (var index = siblingDirectoryIndex + delta; index >= 0 && index < siblingDirectories.Count; index += delta)
             {
-                var scanned = ViewerImageDirectoryScanner.ScanDirectory(siblingDirectories[index]);
+                var directory = siblingDirectories[index];
+                var scanned = await Task.Run(() => ViewerImageDirectoryScanner.ScanDirectory(directory));
+                if (isClosed) return null;
                 if (scanned.Count == 0) continue;
-                return Tuple.Create(siblingDirectories[index], index, scanned);
+                return Tuple.Create(directory, index, scanned);
             }
             return null;
         }
@@ -287,7 +321,7 @@ namespace ImageViewer.Views
             e.Handled = true;
         }
 
-        private void OnDrop(object sender, DragEventArgs e)
+        private async void OnDrop(object sender, DragEventArgs e)
         {
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
             var dropped = FilterImages(e.Data.GetData(DataFormats.FileDrop) as string[]);
@@ -295,11 +329,11 @@ namespace ImageViewer.Views
             if (dropped.Count == 0) return;
 
             Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "拖拽打开 " + dropped.Count + " 张图片", null);
-            LoadExplicitList(dropped, 0);
+            await LoadExplicitListAsync(dropped, 0);
         }
 
         // Ctrl+V：从剪贴板文件列表或「复制路径」文本连续浏览。
-        private bool TryPasteImages()
+        private async Task<bool> TryPasteImagesAsync()
         {
             try
             {
@@ -320,7 +354,7 @@ namespace ImageViewer.Views
                 if (pasted.Count == 0) return false;
 
                 Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "粘贴打开 " + pasted.Count + " 张图片", null);
-                LoadExplicitList(pasted, 0);
+                await LoadExplicitListAsync(pasted, 0);
                 return true;
             }
             catch (Exception error)
@@ -354,7 +388,20 @@ namespace ImageViewer.Views
 
         private void OnClosed(object sender, EventArgs e)
         {
+            isClosed = true;
             viewer.PropertyChanged -= OnViewerPropertyChanged;
+            // 解绑系统主题订阅与消息钩子：避免静态 watcher / HwndSource 继续持有已关闭窗口。
+            ThemeApplier.FollowSystem(this, false);
+            if (windowSource != null)
+            {
+                windowSource.RemoveHook(WindowMessageHook);
+                windowSource = null;
+            }
+            if (folderToastTimer != null)
+            {
+                folderToastTimer.Stop();
+                folderToastTimer = null;
+            }
             if (thumbnailList != null)
             {
                 thumbnailList.Dispose();
@@ -362,7 +409,7 @@ namespace ImageViewer.Views
             }
             Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "查看器已关闭：" + imagePath, null);
             // 显式关停模式下，关闭看图窗口即结束进程。
-            Application.Current.Shutdown();
+            if (Application.Current != null) Application.Current.Shutdown();
         }
 
         private static string ResolveWindowStatePath()
@@ -436,7 +483,7 @@ namespace ImageViewer.Views
             });
         }
 
-        private void OpenImageAt(int index)
+        private async Task OpenImageAtAsync(int index)
         {
             if (index < 0 || index >= images.Count) return;
 
@@ -450,7 +497,7 @@ namespace ImageViewer.Views
             int width = 1, height = 1;
             try
             {
-                var size = BitmapSourceLoader.ReadDimensions(images[index]);
+                var size = await Task.Run(() => BitmapSourceLoader.ReadDimensions(images[index]));
                 width = (int)size.Width;
                 height = (int)size.Height;
             }
@@ -460,6 +507,7 @@ namespace ImageViewer.Views
                 Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器读取图片尺寸失败：" + images[index], error);
             }
 
+            if (isClosed) return;
             var viewportWidth = (int)ViewportHost.ActualWidth;
             var viewportHeight = (int)ViewportHost.ActualHeight;
             if (viewportWidth <= 0) viewportWidth = 800;
@@ -542,10 +590,10 @@ namespace ImageViewer.Views
         }
 
         // 缩略图列表上的滚轮 = 上一张/下一张（列表不滚动，翻页后自动滚动到当前项）。
-        private void ThumbnailListMouseWheel(object sender, MouseWheelEventArgs e)
+        private async void ThumbnailListMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            if (e.Delta > 0) viewer.Previous();
-            else if (e.Delta < 0) viewer.Next();
+            if (e.Delta > 0) await viewer.PreviousAsync();
+            else if (e.Delta < 0) await viewer.NextAsync();
             e.Handled = true;
         }
 
@@ -599,7 +647,7 @@ namespace ImageViewer.Views
                 1.0);
         }
 
-        private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+        private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.F11)
             {
@@ -615,7 +663,7 @@ namespace ImageViewer.Views
                 return;
             }
 
-            if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control && TryPasteImages())
+            if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control && await TryPasteImagesAsync())
             {
                 e.Handled = true;
                 return;
@@ -635,10 +683,10 @@ namespace ImageViewer.Views
                 return;
             }
 
-            if (e.Key == Key.Left) { Navigate(-1); e.Handled = true; return; }
-            if (e.Key == Key.Right) { Navigate(1); e.Handled = true; return; }
+            if (e.Key == Key.Left) { await NavigateAsync(-1); e.Handled = true; return; }
+            if (e.Key == Key.Right) { await NavigateAsync(1); e.Handled = true; return; }
 
-            viewer.HandleKey(e.Key.ToString());
+            await viewer.HandleKeyAsync(e.Key.ToString());
             e.Handled = e.Key == Key.Escape;
         }
 
@@ -659,12 +707,12 @@ namespace ImageViewer.Views
             }
         }
 
-        private void ThumbnailSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private async void ThumbnailSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             if (syncingThumbnailSelection || thumbnailList == null) return;
             var index = ThumbnailListBox.SelectedIndex;
             if (index < 0 || index == viewer.CurrentPosition - 1) return;
-            OpenImageAt(index);
+            await OpenImageAtAsync(index);
         }
 
         private void ToggleThumbnails()
@@ -699,8 +747,8 @@ namespace ImageViewer.Views
         {
             var handle = new WindowInteropHelper(this).Handle;
             if (handle == IntPtr.Zero) return;
-            var source = HwndSource.FromHwnd(handle);
-            if (source != null) source.AddHook(WindowMessageHook);
+            windowSource = HwndSource.FromHwnd(handle);
+            if (windowSource != null) windowSource.AddHook(WindowMessageHook);
         }
 
         // 标题栏属于非客户区，WPF 收不到双击；在窗口级消息钩子里拦截 NC 双击实现全屏。

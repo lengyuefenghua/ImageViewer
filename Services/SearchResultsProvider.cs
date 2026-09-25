@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using ImageViewer.Runtime;
 
@@ -11,12 +12,15 @@ namespace ImageViewer.Services
     public static class SearchResultsProvider
     {
         private const string LoggerName = "ImageViewer";
+        // 枚举 Explorer 窗口是同步 COM，搜索文件夹可能很大；超过预算即回退目录扫描，避免长时间卡住 UI。
+        private static readonly TimeSpan TimeBudget = TimeSpan.FromMilliseconds(300);
 
         public static bool TryGetSearchResultImages(string openedPath, out IReadOnlyList<string> images)
         {
             images = null;
             if (String.IsNullOrWhiteSpace(openedPath)) return false;
 
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 var shellType = Type.GetTypeFromProgID("Shell.Application");
@@ -28,6 +32,12 @@ namespace ImageViewer.Services
 
                 for (var i = 0; i < count; i++)
                 {
+                    if (stopwatch.Elapsed > TimeBudget)
+                    {
+                        Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "读取资源管理器搜索结果超时，回退目录扫描", null);
+                        return false;
+                    }
+
                     dynamic window = null;
                     try { window = windows.Item(i); }
                     catch { continue; }
@@ -40,7 +50,8 @@ namespace ImageViewer.Services
                     // 搜索结果窗口的虚拟位置形如 search-ms:...
                     if (!location.StartsWith("search-ms:", StringComparison.OrdinalIgnoreCase)) continue;
 
-                    List<string> list = EnumerateFolder(shell, location);
+                    List<string> list = EnumerateFolder(shell, location, stopwatch);
+                    if (list == null) return false;
                     if (list.Count <= 1) continue;
                     if (!list.Any(path => String.Equals(path, openedPath, StringComparison.OrdinalIgnoreCase))) continue;
 
@@ -57,7 +68,8 @@ namespace ImageViewer.Services
             return false;
         }
 
-        private static List<string> EnumerateFolder(dynamic shell, string location)
+        // 超预算返回 null，调用方据此回退目录扫描。
+        private static List<string> EnumerateFolder(dynamic shell, string location, Stopwatch stopwatch)
         {
             var result = new List<string>();
             dynamic folder = null;
@@ -69,6 +81,12 @@ namespace ImageViewer.Services
             var count = (int)items.Count;
             for (var i = 0; i < count; i++)
             {
+                if (stopwatch.Elapsed > TimeBudget)
+                {
+                    Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "读取资源管理器搜索结果超时，回退目录扫描", null);
+                    return null;
+                }
+
                 string path = null;
                 try { path = (string)items.Item(i).Path; }
                 catch { continue; }

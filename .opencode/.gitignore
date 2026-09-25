@@ -1,14 +1,5 @@
-# 依赖与工具链
-node_modules/
-package.json
-package-lock.json
-bun.lock
-
-# 运行时状态
+node_modules
 lazy/state.json
 lazy/goal-state.json
 lazy/goal-run.lock
 lazy/reminder-owner.json
-
-# 临时计划
-plans/

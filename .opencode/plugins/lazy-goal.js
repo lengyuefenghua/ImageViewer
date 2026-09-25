@@ -1,7 +1,6 @@
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
-import { tool } from "@opencode-ai/plugin"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const templateRoot = path.resolve(__dirname, "..", "..")
@@ -132,7 +131,7 @@ ${nextHint}
 - 不要仅报告某个局部任务完成后停止。`
 }
 
-function scheduleContinue(root, client, sessionID, delay = 250) {
+function scheduleContinue(root, prompt, sessionID, delay = 250) {
   const runtime = runtimes.get(sessionID)
   if (!runtime || runtime.running || runtime.pending) return
   const state = readGoal(root)
@@ -142,11 +141,11 @@ function scheduleContinue(root, client, sessionID, delay = 250) {
   runtime.timer = setTimeout(() => {
     runtime.timer = null
     runtime.pending = false
-    void continueGoal(root, client, sessionID)
+    void continueGoal(root, prompt, sessionID)
   }, delay)
 }
 
-async function continueGoal(root, client, sessionID) {
+async function continueGoal(root, prompt, sessionID) {
   const runtime = runtimes.get(sessionID)
   const state = readGoal(root)
   if (!runtime || runtime.running || !state || state.sessionID !== sessionID || state.status !== "active") return
@@ -161,7 +160,7 @@ async function continueGoal(root, client, sessionID) {
 
   const releaseLock = acquireRunLock(root, sessionID)
   if (!releaseLock) {
-    scheduleContinue(root, client, sessionID, 2_000)
+    scheduleContinue(root, prompt, sessionID, 2_000)
     return
   }
 
@@ -172,10 +171,7 @@ async function continueGoal(root, client, sessionID) {
   writeGoal(root, state)
 
   try {
-    await client?.session?.prompt?.({
-      path: { id: sessionID },
-      body: { parts: [{ type: "text", text: buildTurnPrompt(root, state) }] },
-    })
+    await prompt(sessionID, buildTurnPrompt(root, state))
   } catch {}
   finally {
     releaseLock()
@@ -198,7 +194,7 @@ async function continueGoal(root, client, sessionID) {
   }
   writeGoal(root, latest)
 
-  if (latest.status === "active") scheduleContinue(root, client, sessionID)
+  if (latest.status === "active") scheduleContinue(root, prompt, sessionID)
 }
 
 function createGoalState(sessionID, flow, options) {
@@ -223,157 +219,208 @@ function createGoalState(sessionID, flow, options) {
   }
 }
 
-export default async ({ client, directory, project } = {}) => {
-  const root = directory || project?.root || templateRoot
-  const persistedGoal = readGoal(root)
-  if (persistedGoal?.status === "active") {
-    persistedGoal.status = "paused"
-    persistedGoal.pausedReason = "OpenCode 已重启；使用 /goal-resume 重新接管并继续。"
-    persistedGoal.updatedAt = now()
-    writeGoal(root, persistedGoal)
-  }
+// V2 工具定义（JSON Schema）。execute 通过 context.sessionID 识别主控会话。
+function toolDefinitions(root, prompt) {
+  return [
+    {
+      name: "lazy_goal_set",
+      description: "显式启动当前项目的 Lazy Goal 连续执行器，仅用于用户主动发起的 /goal 最终目标。它会按 Lazy Flow 持续推进，直到完成、暂停或达到安全上限。",
+      input: {
+        type: "object",
+        properties: {
+          goal: { type: "string", minLength: 1 },
+          max_turns: { type: "integer", minimum: 1 },
+          max_no_progress_turns: { type: "integer", minimum: 1 },
+        },
+        required: ["goal"],
+        additionalProperties: false,
+      },
+      async execute(args, context) {
+        const existing = readGoal(root)
+        if (existing?.status === "active" && existing.sessionID !== context.sessionID) {
+          return { content: "当前项目已有另一个会话正在执行 Lazy Goal。请先由其主控会话暂停或停止。" }
+        }
 
-  return {
-    event: async ({ event }) => {
-      if (event?.type !== "session.idle") return
-      const sessionID = event.properties?.sessionID
-      if (typeof sessionID === "string") scheduleContinue(root, client, sessionID)
+        const flow = lazyState(root)
+        if (existing?.sessionID) clearRuntime(existing.sessionID)
+        const state = createGoalState(context.sessionID, flow, {
+          goal: args.goal.trim(),
+          maxTurns: args.max_turns,
+          maxNoProgressTurns: args.max_no_progress_turns,
+        })
+        writeGoal(root, state)
+        runtimes.set(context.sessionID, { running: false, pending: false, timer: null, progressed: false })
+        scheduleContinue(root, prompt, context.sessionID)
+        return { content: `Lazy Goal 已启动：${state.goal}。将在当前 Lazy Flow 状态下持续推进，最多 ${state.maxTurns} 轮；连续 ${state.maxNoProgressTurns} 轮无显式进展会暂停。` }
+      },
     },
-
-    tool: {
-      lazy_goal_set: tool({
-        description: "显式启动当前项目的 Lazy Goal 连续执行器，仅用于用户主动发起的 /goal 最终目标。它会按 Lazy Flow 持续推进，直到完成、暂停或达到安全上限。",
-        args: {
-          goal: tool.schema.string().min(1),
-          max_turns: tool.schema.number().int().positive().optional(),
-          max_no_progress_turns: tool.schema.number().int().positive().optional(),
+    {
+      name: "lazy_goal_progress",
+      description: "记录当前 Lazy Goal 的一个可验证进展。完成后引擎会继续下一个步骤。",
+      input: {
+        type: "object",
+        properties: {
+          note: { type: "string", minLength: 1 },
+          verification: { type: "string" },
         },
-        async execute(args, context) {
-          const existing = readGoal(root)
-          if (existing?.status === "active" && existing.sessionID !== context.sessionID) {
-            return "当前项目已有另一个会话正在执行 Lazy Goal。请先由其主控会话暂停或停止。"
-          }
+        required: ["note"],
+        additionalProperties: false,
+      },
+      async execute(args, context) {
+        const { state, error } = ownerState(root, context.sessionID)
+        if (error) return { content: error }
+        if (state.status !== "active") return { content: `Lazy Goal 当前状态为 ${state.status}，不能记录进展。` }
 
-          const flow = lazyState(root)
-          if (existing?.sessionID) clearRuntime(existing.sessionID)
-          const state = createGoalState(context.sessionID, flow, {
-            goal: args.goal.trim(),
-            maxTurns: args.max_turns,
-            maxNoProgressTurns: args.max_no_progress_turns,
-          })
-          writeGoal(root, state)
-          runtimes.set(context.sessionID, { running: false, pending: false, timer: null, progressed: false })
-          scheduleContinue(root, client, context.sessionID)
-          return `Lazy Goal 已启动：${state.goal}。将在当前 Lazy Flow 状态下持续推进，最多 ${state.maxTurns} 轮；连续 ${state.maxNoProgressTurns} 轮无显式进展会暂停。`
-        },
-      }),
-
-      lazy_goal_progress: tool({
-        description: "记录当前 Lazy Goal 的一个可验证进展。完成后引擎会继续下一个步骤。",
-        args: {
-          note: tool.schema.string().min(1),
-          verification: tool.schema.string().optional(),
-        },
-        async execute(args, context) {
-          const { state, error } = ownerState(root, context.sessionID)
-          if (error) return error
-          if (state.status !== "active") return `Lazy Goal 当前状态为 ${state.status}，不能记录进展。`
-
-          updateFlowSnapshot(root, state)
-          state.progress.push({
-            at: now(),
-            note: args.note.trim(),
-            verification: args.verification?.trim() || null,
-          })
-          state.progress = state.progress.slice(-50)
-          state.noProgressTurns = 0
-          state.updatedAt = now()
-          writeGoal(root, state)
-          const runtime = runtimes.get(context.sessionID)
-          if (runtime) runtime.progressed = true
-          return "Lazy Goal 进展已记录。完成当前回合后将继续检查下一个步骤。"
-        },
-      }),
-
-      lazy_goal_mark_done: tool({
-        description: "仅在最终 Lazy Goal 已满足时调用。调用后停止自动续跑。",
-        args: {
-          evidence: tool.schema.string().min(1),
-          verification: tool.schema.string().min(1),
-        },
-        async execute(args, context) {
-          const { state, error } = ownerState(root, context.sessionID)
-          if (error) return error
-
-          state.status = "completed"
-          state.completion = { at: now(), evidence: args.evidence.trim(), verification: args.verification.trim() }
-          state.pausedReason = null
-          state.updatedAt = now()
-          writeGoal(root, state)
-          clearRuntime(context.sessionID)
-          return "Lazy Goal 已完成并停止续跑。"
-        },
-      }),
-
-      lazy_goal_pause: tool({
-        description: "暂停当前 Lazy Goal 并保留状态。需求不清、需要用户决策、验证失败或需要同步/归档确认时调用。",
-        args: { reason: tool.schema.string().min(1) },
-        async execute(args, context) {
-          const { state, error } = ownerState(root, context.sessionID)
-          if (error) return error
-          state.status = "paused"
-          state.pausedReason = args.reason.trim()
-          state.updatedAt = now()
-          writeGoal(root, state)
-          clearRuntime(context.sessionID)
-          return `Lazy Goal 已暂停：${state.pausedReason}`
-        },
-      }),
-
-      lazy_goal_resume: tool({
-        description: "恢复当前项目已暂停的 Lazy Goal。仅在用户已处理暂停原因后调用。",
-        args: {},
-        async execute(_args, context) {
-          const state = readGoal(root)
-          if (!state) return "当前项目没有可恢复的 Lazy Goal。"
-          if (state.status !== "paused") return `Lazy Goal 当前状态为 ${state.status}，不能恢复。`
-
-          clearRuntime(state.sessionID)
-          state.sessionID = context.sessionID
-          state.status = "active"
-          state.pausedReason = null
-          state.updatedAt = now()
-          updateFlowSnapshot(root, state)
-          writeGoal(root, state)
-          runtimes.set(context.sessionID, { running: false, pending: false, timer: null, progressed: false })
-          scheduleContinue(root, client, context.sessionID)
-          return "Lazy Goal 已恢复，将继续推进下一个步骤。"
-        },
-      }),
-
-      lazy_goal_status: tool({
-        description: "查看当前项目 Lazy Goal 的目标、状态、轮次、最近进展和暂停或完成证据。",
-        args: {},
-        async execute() {
-          const state = readGoal(root)
-          return state ? JSON.stringify(state, null, 2) : "当前项目没有 Lazy Goal。"
-        },
-      }),
-
-      lazy_goal_abort: tool({
-        description: "停止并删除当前项目的 Lazy Goal 状态。仅在用户明确要求停止时调用。",
-        args: {},
-        async execute(_args, context) {
-          const { state, error } = ownerState(root, context.sessionID)
-          if (error) return error
-          clearRuntime(state.sessionID)
-          deleteGoal(root)
-          try {
-            fs.rmSync(lockPath(root), { force: true })
-          } catch {}
-          return "Lazy Goal 已停止并删除本地状态。"
-        },
-      }),
+        updateFlowSnapshot(root, state)
+        state.progress.push({
+          at: now(),
+          note: args.note.trim(),
+          verification: args.verification?.trim() || null,
+        })
+        state.progress = state.progress.slice(-50)
+        state.noProgressTurns = 0
+        state.updatedAt = now()
+        writeGoal(root, state)
+        const runtime = runtimes.get(context.sessionID)
+        if (runtime) runtime.progressed = true
+        return { content: "Lazy Goal 进展已记录。完成当前回合后将继续检查下一个步骤。" }
+      },
     },
-  }
+    {
+      name: "lazy_goal_mark_done",
+      description: "仅在最终 Lazy Goal 已满足时调用。调用后停止自动续跑。",
+      input: {
+        type: "object",
+        properties: {
+          evidence: { type: "string", minLength: 1 },
+          verification: { type: "string", minLength: 1 },
+        },
+        required: ["evidence", "verification"],
+        additionalProperties: false,
+      },
+      async execute(args, context) {
+        const { state, error } = ownerState(root, context.sessionID)
+        if (error) return { content: error }
+
+        state.status = "completed"
+        state.completion = { at: now(), evidence: args.evidence.trim(), verification: args.verification.trim() }
+        state.pausedReason = null
+        state.updatedAt = now()
+        writeGoal(root, state)
+        clearRuntime(context.sessionID)
+        return { content: "Lazy Goal 已完成并停止续跑。" }
+      },
+    },
+    {
+      name: "lazy_goal_pause",
+      description: "暂停当前 Lazy Goal 并保留状态。需求不清、需要用户决策、验证失败或需要同步/归档确认时调用。",
+      input: {
+        type: "object",
+        properties: { reason: { type: "string", minLength: 1 } },
+        required: ["reason"],
+        additionalProperties: false,
+      },
+      async execute(args, context) {
+        const { state, error } = ownerState(root, context.sessionID)
+        if (error) return { content: error }
+        state.status = "paused"
+        state.pausedReason = args.reason.trim()
+        state.updatedAt = now()
+        writeGoal(root, state)
+        clearRuntime(context.sessionID)
+        return { content: `Lazy Goal 已暂停：${state.pausedReason}` }
+      },
+    },
+    {
+      name: "lazy_goal_resume",
+      description: "恢复当前项目已暂停的 Lazy Goal。仅在用户已处理暂停原因后调用。",
+      input: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      async execute(_args, context) {
+        const state = readGoal(root)
+        if (!state) return { content: "当前项目没有可恢复的 Lazy Goal。" }
+        if (state.status !== "paused") return { content: `Lazy Goal 当前状态为 ${state.status}，不能恢复。` }
+
+        clearRuntime(state.sessionID)
+        state.sessionID = context.sessionID
+        state.status = "active"
+        state.pausedReason = null
+        state.updatedAt = now()
+        updateFlowSnapshot(root, state)
+        writeGoal(root, state)
+        runtimes.set(context.sessionID, { running: false, pending: false, timer: null, progressed: false })
+        scheduleContinue(root, prompt, context.sessionID)
+        return { content: "Lazy Goal 已恢复，将继续推进下一个步骤。" }
+      },
+    },
+    {
+      name: "lazy_goal_status",
+      description: "查看当前项目 Lazy Goal 的目标、状态、轮次、最近进展和暂停或完成证据。",
+      input: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      async execute() {
+        const state = readGoal(root)
+        return { content: state ? JSON.stringify(state, null, 2) : "当前项目没有 Lazy Goal。" }
+      },
+    },
+    {
+      name: "lazy_goal_abort",
+      description: "停止并删除当前项目的 Lazy Goal 状态。仅在用户明确要求停止时调用。",
+      input: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      async execute(_args, context) {
+        const { state, error } = ownerState(root, context.sessionID)
+        if (error) return { content: error }
+        clearRuntime(state.sessionID)
+        deleteGoal(root)
+        try {
+          fs.rmSync(lockPath(root), { force: true })
+        } catch {}
+        return { content: "Lazy Goal 已停止并删除本地状态。" }
+      },
+    },
+  ]
+}
+
+export default {
+  id: "lazy-goal",
+  async setup(ctx) {
+    const root = ctx.location?.directory || templateRoot
+    const prompt = (sessionID, text) => ctx.session.prompt({ sessionID, text })
+
+    const persistedGoal = readGoal(root)
+    if (persistedGoal?.status === "active") {
+      persistedGoal.status = "paused"
+      persistedGoal.pausedReason = "OpenCode 已重启；使用 /goal-resume 重新接管并继续。"
+      persistedGoal.updatedAt = now()
+      writeGoal(root, persistedGoal)
+    }
+
+    await ctx.tool.transform((editor) => {
+      for (const definition of toolDefinitions(root, prompt)) editor.add(definition)
+    })
+
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+          const sessionID = event?.data?.sessionID
+          if (typeof sessionID !== "string") continue
+          const idle = event.type === "session.idle" || (event.type === "session.status" && event.data?.status?.type === "idle")
+          if (idle) scheduleContinue(root, prompt, sessionID)
+        }
+      } catch {}
+    })()
+
+    return () => controller.abort()
+  },
 }

@@ -4,7 +4,6 @@ import { fileURLToPath } from "url"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, "..", "..")
-const sessions = new Map()
 
 function readJson(file, fallback) {
   try {
@@ -68,11 +67,6 @@ function isSourcePath(filePath) {
   return /\.(js|jsx|ts|tsx|mjs|cjs|py|go|rs|java|kt|swift|php|rb|cs|cpp|c|h|hpp|vue|svelte)$/.test(normalized)
 }
 
-function loadedSkills(sessionID) {
-  if (!sessions.has(sessionID)) sessions.set(sessionID, new Set())
-  return sessions.get(sessionID)
-}
-
 function countTasks(file) {
   try {
     const lines = fs.readFileSync(file, "utf8").split(/\r?\n/)
@@ -88,52 +82,73 @@ function countTasks(file) {
   }
 }
 
-export default async ({ client, directory, project } = {}) => {
-  const root = directory || project?.root || projectRoot
-  const localStatePath = path.join(root, ".opencode", "lazy", "state.json")
-  const nudges = new Map()
-  const childSessions = new Set()
+export default {
+  id: "lazy-reminder",
+  async setup(ctx) {
+    const root = ctx.location?.directory || projectRoot
+    const localStatePath = path.join(root, ".opencode", "lazy", "state.json")
+    const goalStatePath = path.join(root, ".opencode", "lazy", "goal-state.json")
+    const nudges = new Map()
+    const childSessions = new Set()
 
-  const claim = (changeId, sessionID) => {
-    if (!changeId || typeof sessionID !== "string") return
-    writeOwner(root, { changeId, sessionID, updatedAt: new Date().toISOString() })
-  }
+    const claim = (changeId, sessionID) => {
+      if (!changeId || typeof sessionID !== "string") return
+      writeOwner(root, { changeId, sessionID, updatedAt: new Date().toISOString() })
+    }
 
-  const toast = async (message) => {
-    try {
-      await client?.tui?.showToast?.({ body: { title: "Lazy Flow", message, variant: "info" } })
-    } catch {}
-  }
-
-  return {
-    "experimental.chat.system.transform": async (input, output) => {
+    // V1 的 experimental.chat.system.transform：向模型系统提示注入 Flow / Lean / Goal 守卫。
+    await ctx.session.hook("context", (event) => {
       const mode = readMode(localStatePath)
-      output.system.push(FLOW_GUARD)
+      event.system.push({ type: "text", text: FLOW_GUARD })
       const guard = leanGuard(mode)
-      if (guard) output.system.push(guard)
-      const goal = readGoal(path.join(root, ".opencode", "lazy", "goal-state.json"))
-      if (goal?.status === "active" && (!input.sessionID || input.sessionID === goal.sessionID)) {
-        output.system.push(`Lazy Goal 正在执行：${goal.goal}。不要在局部步骤完成后仅报告并停止；每个可验证步骤调用 lazy_goal_progress。需求不清、验证失败、需要用户决策或归档确认时调用 lazy_goal_pause。只有最终目标满足并有验证证据时调用 lazy_goal_mark_done。`)
+      if (guard) event.system.push({ type: "text", text: guard })
+      const goal = readGoal(goalStatePath)
+      if (goal?.status === "active" && (!event.sessionID || event.sessionID === goal.sessionID)) {
+        event.system.push({ type: "text", text: `Lazy Goal 正在执行：${goal.goal}。不要在局部步骤完成后仅报告并停止；每个可验证步骤调用 lazy_goal_progress。需求不清、验证失败、需要用户决策或归档确认时调用 lazy_goal_pause。只有最终目标满足并有验证证据时调用 lazy_goal_mark_done。` })
       }
-    },
+    })
 
-    event: async ({ event }) => {
-      if (event?.type === "session.created" || event?.type === "session.updated") {
-        const info = event.properties?.info
-        if (info?.id) {
-          if (info.parentID) childSessions.add(info.id)
-          else childSessions.delete(info.id)
-        }
+    // V1 的 tool.execute.before：仅保留归属判定（idle 提醒的 owner 记录）。
+    await ctx.tool.hook("execute.before", (event) => {
+      const toolName = event?.tool
+      const args = event?.input || {}
+      const sessionID = event?.sessionID
+
+      if (toolName === "skill" && typeof args.name === "string" && args.name === "using-lazy-flow") {
+        const flow = readJson(localStatePath, {})
+        if (flow.activeChange) claim(flow.activeChange, sessionID)
         return
       }
-      if (event?.type === "session.deleted") {
-        const info = event.properties?.info
-        if (info?.id) childSessions.delete(info.id)
+
+      if (!["edit", "write", "patch"].includes(toolName)) return
+
+      const filePath = args.filePath || args.path || args.file || args.target
+      const changeId = changeIdFromPath(filePath)
+      if (changeId) {
+        claim(changeId, sessionID)
+      } else if (isSourcePath(filePath)) {
+        const flow = readJson(localStatePath, {})
+        if (flow.activeChange) claim(flow.activeChange, sessionID)
+      }
+    })
+
+    const handleEvent = (event) => {
+      const type = event?.type
+      const data = event?.data || {}
+
+      if (type === "session.created") {
+        if (data.parentID) childSessions.add(data.sessionID)
+        else childSessions.delete(data.sessionID)
         return
       }
-      if (event?.type === "session.error") {
-        const abortedSession = event.properties?.sessionID
-        if (typeof abortedSession === "string" && event.properties?.error?.name === "MessageAbortedError") {
+      if (type === "session.deleted") {
+        childSessions.delete(data.sessionID)
+        return
+      }
+      if (type === "session.execution.interrupted") {
+        // V2 等价于 V1 的 MessageAbortedError：执行被中断时抑制 idle 提醒。
+        const abortedSession = data.sessionID
+        if (typeof abortedSession === "string") {
           const state = nudges.get(abortedSession) || { count: 0, lastUnchecked: null, pending: false }
           state.suppressed = true
           state.pending = false
@@ -141,8 +156,11 @@ export default async ({ client, directory, project } = {}) => {
         }
         return
       }
-      if (event?.type !== "session.idle") return
-      const sessionID = event.properties?.sessionID
+
+      const idle = type === "session.idle" || (type === "session.status" && data.status?.type === "idle")
+      if (!idle) return
+
+      const sessionID = data.sessionID
       if (typeof sessionID !== "string") return
       if (childSessions.has(sessionID)) return
       const flow = readJson(localStatePath, {})
@@ -176,58 +194,19 @@ export default async ({ client, directory, project } = {}) => {
       const nudgeText = `[Lazy Flow] 空闲核对（第 ${state.count}/3 次）：docs/changes/${flow.activeChange}/tasks.md 还有 ${tasks.unchecked} 条未完成。请逐条确认是否已完整实现（不是最小实现/偷懒）；未完成的继续做，全部完成请明确说明已完成，不要只报告局部进度。`
       setTimeout(() => {
         state.pending = false
-        void client?.session?.prompt?.({ path: { id: sessionID }, body: { parts: [{ type: "text", text: nudgeText }] } }).catch(() => {})
+        void ctx.session.prompt({ sessionID, text: nudgeText }).catch(() => {})
       }, 300)
-    },
+    }
 
-    "tool.execute.before": async (input, output) => {
-      const toolName = input?.tool
-      const args = output?.args || {}
-      const sessionID = input?.sessionID
-      const skills = loadedSkills(sessionID)
-
-      if (toolName === "skill" && typeof args.name === "string") {
-        skills.add(args.name)
-        if (args.name === "using-lazy-flow") {
-          const flow = readJson(localStatePath, {})
-          if (flow.activeChange) claim(flow.activeChange, sessionID)
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+          handleEvent(event)
         }
-        return
-      }
+      } catch {}
+    })()
 
-      if (!["edit", "write", "patch"].includes(toolName)) return
-
-      const filePath = args.filePath || args.path || args.file || args.target
-      const changeId = changeIdFromPath(filePath)
-      if (changeId) {
-        claim(changeId, sessionID)
-      } else if (isSourcePath(filePath)) {
-        const flow = readJson(localStatePath, {})
-        if (flow.activeChange) claim(flow.activeChange, sessionID)
-      }
-
-      if (!isSourcePath(filePath)) return
-
-      const state = readJson(localStatePath, {})
-      const mode = readMode(localStatePath)
-      const goal = readGoal(path.join(root, ".opencode", "lazy", "goal-state.json"))
-      const reminders = []
-      if (!skills.has("using-lazy-flow")) {
-        reminders.push("开发操作前尚未加载 using-lazy-flow，请先完成分级和路由")
-      }
-      if (["patch", "full"].includes(state.level) && !state.activeChange) {
-        reminders.push("当前是 patch/full 变更但尚未设置 activeChange，请先建立或恢复 change")
-      }
-      if (mode !== "off" && !skills.has("lean-check")) {
-        reminders.push("源码编辑前尚未加载 lean-check，请先执行最小实现检查")
-      }
-      if (["design", "planning"].includes(state.phase)) {
-        reminders.push(`当前阶段是 ${state.phase}，除非用户明确要求直接实现，请先完成当前工作流阶段`)
-      }
-      if (goal?.status === "active" && input.sessionID === goal.sessionID) {
-        reminders.push("存在 active Lazy Goal，完成可验证步骤后记录 lazy_goal_progress")
-      }
-      if (reminders.length > 0) await toast(reminders.join("；"))
-    },
-  }
+    return () => controller.abort()
+  },
 }

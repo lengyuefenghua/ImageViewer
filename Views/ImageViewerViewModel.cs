@@ -7,12 +7,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using ImageViewer.ViewModels;
-using ImageViewer.Core.Diagnostics;
+using ImageViewer.Runtime;
 using ImageViewer.Imaging.Viewport;
 using ImageViewer.Services;
 
-namespace ImageViewer.ViewModels.Viewer
+namespace ImageViewer.Views
 {
     // 独立查看器的看图视图模型：只承载结果集翻页、视口、底栏信息与指针取色，不涉及规则/复判/业务数据。
     public sealed class ImageViewerViewModel : BindableViewModel

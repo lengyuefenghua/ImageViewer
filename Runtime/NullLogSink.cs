@@ -1,6 +1,6 @@
 using System;
 
-namespace ImageViewer.Core.Diagnostics
+namespace ImageViewer.Runtime
 {
     // 空实现：吞掉日志调用，保证记录日志本身失败时绝不中断主流程。
     public sealed class NullLogSink : ILogSink

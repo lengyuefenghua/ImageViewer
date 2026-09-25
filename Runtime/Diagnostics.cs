@@ -1,4 +1,4 @@
-namespace ImageViewer.Core.Diagnostics
+namespace ImageViewer.Runtime
 {
     // 进程级日志门面：默认空实现，宿主或测试可替换为真实 sink，无需改动大量埋点处的构造函数。
     public static class Diagnostics

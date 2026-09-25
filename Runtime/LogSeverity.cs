@@ -1,4 +1,4 @@
-namespace ImageViewer.Core.Diagnostics
+namespace ImageViewer.Runtime
 {
     public enum LogSeverity
     {

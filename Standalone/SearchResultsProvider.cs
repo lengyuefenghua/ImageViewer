@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ImageViewer.Core.Diagnostics;
+using ImageViewer.Runtime;
 
 namespace ImageViewer.Standalone
 {

@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using ImageViewer.Configuration;
-using ImageViewer.Core.Diagnostics;
 
 namespace ImageViewer.Runtime
 {

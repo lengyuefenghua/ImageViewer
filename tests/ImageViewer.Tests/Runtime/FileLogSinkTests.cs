@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Threading;
 using ImageViewer.Runtime;
-using ImageViewer.Core.Diagnostics;
 using Xunit;
 
 namespace ImageViewer.Tests.Runtime

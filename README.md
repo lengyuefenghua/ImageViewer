@@ -38,9 +38,8 @@ App.xaml / App.xaml.cs    应用入口、首启引导
 Standalone/               查看器窗口、目录扫描、缩略图、窗口状态、命令行参数
 Services/                 解码、文件关联
 Imaging/                  视口解码管线
-ViewModels/ Views/        视图模型与设置窗口
-Runtime/ Configuration/   日志、路径、配置
-Diagnostics/              日志抽象
+Views/                    窗口与视图模型
+Runtime/                  日志（抽象 + 实现）、路径、配置
 tests/ImageViewer.Tests   单元测试
 tools/                    构建 / 测试 / 运行 / 发布脚本
 .github/workflows/        tag 触发的发布工作流

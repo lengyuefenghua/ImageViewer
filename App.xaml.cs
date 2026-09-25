@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
-using ImageViewer.Configuration;
 using ImageViewer.Runtime;
 using ImageViewer.Services;
 using ImageViewer.Standalone;
-using ImageViewer.Core.Diagnostics;
 using Microsoft.Win32;
 
 namespace ImageViewer

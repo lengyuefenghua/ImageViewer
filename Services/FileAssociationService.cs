@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using ImageViewer.Core.Diagnostics;
+using ImageViewer.Runtime;
 using Microsoft.Win32;
 
 namespace ImageViewer.Services

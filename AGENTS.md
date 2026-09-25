@@ -14,7 +14,7 @@
 - 无独立 lint/typecheck；编译检查即 `dotnet build`（已由 `tools\build.ps1` 包装）
 
 ## Architecture
-- 应用项目 `ImageViewer.csproj` 位于仓库根，源码平铺在同级目录：`Standalone`（查看器窗口/目录扫描/缩略图/窗口状态/命令行参数）、`Services`（解码、文件关联）、`Imaging`（视口解码管线）、`ViewModels`、`Runtime`（日志与路径）、`Configuration`、`Diagnostics`、`Views\SettingsWindow`；测试在 `tests\ImageViewer.Tests`。
+- 应用项目 `ImageViewer.csproj` 位于仓库根，源码平铺在同级目录：`Standalone`（查看器窗口/目录扫描/缩略图/窗口状态/命令行参数）、`Services`（解码、文件关联）、`Imaging`（视口解码管线）、`Views`（窗口与视图模型）、`Runtime`（日志抽象与实现、路径、配置）；测试在 `tests\ImageViewer.Tests`。
 - 入口 `App.xaml.cs` 的 `OnStartup`：先处理首启「设为默认查看器」引导，再按命令行参数打开 `StandaloneViewerWindow`（无参数则打开空白窗口）。
 - 图片枚举只扫描图片所在目录的直接子项（白名单 jpg/png/bmp，非递归，资源管理器式自然排序），不走 Everything/索引：`Standalone\ViewerImageDirectoryScanner.cs`。
 - 全部 UI 使用 WPF UI（`Wpf.Ui`）自带控件及其隐式样式；查控件 API 读本地源码 `C:\Users\wtg\Desktop\agent\wpfui-4.3.0`，不要凭记忆猜属性名。
@@ -43,7 +43,6 @@
 - 构建产物在仓库根 `build\<Configuration>\`（csproj 覆写了 `OutputPath`），不是 `bin\`。
 - 运行中的 ImageViewer 会锁住 `build\<Configuration>`；所有脚本构建前会先停止 `ImageViewer` 进程。
 - `tools\test.ps1` 默认**不**构建（`--no-build`）；改完代码要跑测试必须加 `-Build`，否则测的是旧产物。
-- 命名空间与目录不一致：`Diagnostics\` 下为 `ImageViewer.Core.Diagnostics`（其余目录命名空间为 `ImageViewer.<目录名>`，Services 统一为 `ImageViewer.Services`）。
 - 测试项目 `ImageViewer.Tests` 通过 `InternalsVisibleTo("ImageViewer.Tests")` 访问 `ImageViewer` 的 internal 成员。
 - 应用 csproj 在仓库根，SDK 默认 glob 会递归吸入 `tests\**`，已在 `ImageViewer.csproj` 用 `Compile/Page/ApplicationDefinition/None Remove="tests\**"` 排除，勿删。
 - 用户配置写在 exe 旁 `ImageViewer.exe.config`；csproj 设了 `GenerateSupportedRuntime=false` 以免构建覆盖用户配置，勿改回。

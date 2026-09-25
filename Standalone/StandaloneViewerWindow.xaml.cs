@@ -11,9 +11,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using ImageViewer.Runtime;
 using ImageViewer.Services;
-using ImageViewer.ViewModels.Viewer;
 using ImageViewer.Views;
-using ImageViewer.Core.Diagnostics;
 using Microsoft.Win32;
 using Wpf.Ui.Controls;
 

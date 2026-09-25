@@ -1,6 +1,6 @@
 using System;
 
-namespace ImageViewer.Core.Diagnostics
+namespace ImageViewer.Runtime
 {
     // Core 只依赖此抽象，不引用具体日志实现（WPF、文件系统等）。
     public interface ILogSink

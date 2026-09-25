@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security;
-using ImageViewer.Core.Diagnostics;
+using ImageViewer.Runtime;
 
 namespace ImageViewer.Standalone
 {

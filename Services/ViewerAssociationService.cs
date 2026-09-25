@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using ImageViewer.Runtime;
-using ImageViewer.Core.Diagnostics;
 
 namespace ImageViewer.Services
 {

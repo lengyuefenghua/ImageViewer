@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 
-namespace ImageViewer.Configuration
+namespace ImageViewer.Runtime
 {
     // 通过 .NET 内置 ConfigurationManager 读写标准 App.config 的 appSettings 段。
     // 用映射路径而非默认 exe 配置，便于测试与显式定位；appSettings 读改写非原子，进程内用静态锁串行化。

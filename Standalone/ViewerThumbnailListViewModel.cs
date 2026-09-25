@@ -5,7 +5,7 @@ using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using ImageViewer.Services;
-using ImageViewer.Core.Diagnostics;
+using ImageViewer.Runtime;
 
 namespace ImageViewer.Standalone
 {

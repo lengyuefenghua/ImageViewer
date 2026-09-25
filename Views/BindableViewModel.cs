@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 
-namespace ImageViewer.ViewModels
+namespace ImageViewer.Views
 {
     public abstract class BindableViewModel : INotifyPropertyChanged
     {

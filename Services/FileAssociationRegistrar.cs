@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Security.Principal;
-using ImageViewer.Core.Diagnostics;
+using ImageViewer.Runtime;
 
 namespace ImageViewer.Services
 {

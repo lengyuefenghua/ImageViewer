@@ -2,10 +2,10 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using ImageViewer.ViewModels.Viewer;
+using ImageViewer.Views;
 using Xunit;
 
-namespace ImageViewer.Tests.Viewer
+namespace ImageViewer.Tests.Views
 {
     public sealed class ImageViewerViewModelTests
     {

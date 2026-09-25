@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Services
 {
     public static class ImageCopyService
     {

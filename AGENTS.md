@@ -14,9 +14,9 @@
 - 无独立 lint/typecheck；编译检查即 `dotnet build`（已由 `tools\build.ps1` 包装）
 
 ## Architecture
-- 应用项目 `ImageViewer.csproj` 位于仓库根，源码平铺在同级目录：`Viewer`（查看器窗口/目录扫描/缩略图/窗口状态/命令行参数）、`Services`（解码、文件关联）、`Imaging`（视口解码管线）、`Views`（窗口与视图模型）、`Runtime`（日志抽象与实现、路径、配置）；测试在 `tests\ImageViewer.Tests`。
+- 应用项目 `ImageViewer.csproj` 位于仓库根，源码平铺在同级目录：`Views`（窗口与视图模型：查看器 / 复制到 / 设置）、`Services`（解码、文件关联、浏览扫描、复制）、`Imaging`（视口解码管线）、`Runtime`（日志抽象与实现、路径、配置）；测试在 `tests\`。
 - 入口 `App.xaml.cs` 的 `OnStartup`：先处理首启「设为默认查看器」引导，再按命令行参数打开 `ViewerWindow`（无参数则打开空白窗口）。
-- 图片枚举只扫描图片所在目录的直接子项（白名单 jpg/png/bmp，非递归，资源管理器式自然排序）：`Viewer\ViewerImageDirectoryScanner.cs`。
+- 图片枚举只扫描图片所在目录的直接子项（白名单 jpg/png/bmp，非递归，资源管理器式自然排序）：`Services\ViewerImageDirectoryScanner.cs`。
 - 全部 UI 使用 WPF UI（`Wpf.Ui`）自带控件及其隐式样式；查控件 API 读本地源码 `C:\Users\wtg\Desktop\agent\wpfui-4.3.0`，不要凭记忆猜属性名。
 - CI：推送 `v*` tag 触发 `.github/workflows/release.yml`，版本号解析自 git tag。
 

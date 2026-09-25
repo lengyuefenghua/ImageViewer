@@ -1,10 +1,10 @@
 using System;
 using System.IO;
 using System.Linq;
-using ImageViewer.Viewer;
+using ImageViewer.Services;
 using Xunit;
 
-namespace ImageViewer.Tests.Viewer
+namespace ImageViewer.Tests.Services
 {
     public sealed class ViewerImageDirectoryScannerTests
     {

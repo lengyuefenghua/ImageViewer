@@ -1,7 +1,7 @@
-using ImageViewer.Viewer;
+using ImageViewer.Services;
 using Xunit;
 
-namespace ImageViewer.Tests.Viewer
+namespace ImageViewer.Tests.Services
 {
     public sealed class ElevatedCommandTests
     {

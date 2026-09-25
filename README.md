@@ -35,12 +35,11 @@
 ```
 ImageViewer.csproj        应用项目（位于仓库根）
 App.xaml / App.xaml.cs    应用入口、首启引导
-Viewer/                    查看器窗口、目录扫描、缩略图、窗口状态、命令行参数
-Services/                 解码、文件关联
+Services/                 解码、文件关联、浏览扫描、复制
 Imaging/                  视口解码管线
 Views/                    窗口与视图模型
 Runtime/                  日志（抽象 + 实现）、路径、配置
-tests/ImageViewer.Tests   单元测试
+tests/                    单元测试
 tools/                    构建 / 测试 / 运行 / 发布脚本
 .github/workflows/        tag 触发的发布工作流
 ```

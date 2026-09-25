@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using ImageViewer.Viewer;
+using ImageViewer.Views;
 using Xunit;
 
-namespace ImageViewer.Tests.Viewer
+namespace ImageViewer.Tests.Views
 {
     public sealed class ViewerThumbnailListViewModelTests
     {

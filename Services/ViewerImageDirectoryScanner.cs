@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Security;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Services
 {
     // 同目录扫描：只服务看图器的左右切换。
     public static class ViewerImageDirectoryScanner

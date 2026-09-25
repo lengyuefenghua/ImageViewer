@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Services
 {
     // 现代文件夹选择器：调用 Windows Vista+ 的 IFileOpenDialog（FOS_PICKFOLDERS），
     // 即资源管理器同款「选择文件夹」对话框，替代老旧的 WinForms FolderBrowserDialog。

@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Services
 {
     public static class CopyFileName
     {

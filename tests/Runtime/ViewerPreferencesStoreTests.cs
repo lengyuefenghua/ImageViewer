@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using ImageViewer.Runtime;
-using ImageViewer.Viewer;
 using Xunit;
 
 namespace ImageViewer.Tests.Runtime

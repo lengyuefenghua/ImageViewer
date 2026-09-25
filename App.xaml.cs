@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using ImageViewer.Runtime;
 using ImageViewer.Services;
-using ImageViewer.Viewer;
+using ImageViewer.Views;
 using Microsoft.Win32;
 
 namespace ImageViewer

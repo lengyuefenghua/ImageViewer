@@ -21,6 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\ImageViewer.csproj" />
+    <ProjectReference Include="..\ImageViewer.csproj" />
   </ItemGroup>
 </Project>

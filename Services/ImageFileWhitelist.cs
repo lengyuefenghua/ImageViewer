@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Services
 {
     // 图片格式白名单（jpg/png/bmp）。
     internal static class ImageFileWhitelist

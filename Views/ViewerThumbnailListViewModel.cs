@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using ImageViewer.Services;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Views
 {
     // 缩略图列表项：Bitmap 为 null 且 IsPlaceholder 为真表示解码失败（不再重试）。
     public sealed class ViewerThumbnailItem : INotifyPropertyChanged

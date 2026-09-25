@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Services
 {
     // 命令行图片参数解析：只接受存在且扩展名属于白名单的图片路径，供启动模式判定。
     public static class CommandLineImageArgument

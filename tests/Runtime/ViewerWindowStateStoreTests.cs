@@ -1,10 +1,9 @@
 using System;
 using System.IO;
 using ImageViewer.Runtime;
-using ImageViewer.Viewer;
 using Xunit;
 
-namespace ImageViewer.Tests.Viewer
+namespace ImageViewer.Tests.Runtime
 {
     public sealed class ViewerWindowStateStoreTests : IDisposable
     {

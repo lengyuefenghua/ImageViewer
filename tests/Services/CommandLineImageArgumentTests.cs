@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using ImageViewer.Viewer;
+using ImageViewer.Services;
 using Xunit;
 
-namespace ImageViewer.Tests.Viewer
+namespace ImageViewer.Tests.Services
 {
     public sealed class CommandLineImageArgumentTests
     {

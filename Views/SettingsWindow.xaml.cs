@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using ImageViewer.Runtime;
 using ImageViewer.Services;
-using ImageViewer.Viewer;
 using Microsoft.Win32;
 using Wpf.Ui.Controls;
 

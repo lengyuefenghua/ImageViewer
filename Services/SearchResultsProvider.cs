@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Services
 {
     // 尝试直读资源管理器「搜索结果」窗口的图片列表（best-effort）：
     // 通过 Shell.Application 枚举已打开的 Explorer 窗口，若其位置是搜索虚拟文件夹（search-ms:），取其条目路径。

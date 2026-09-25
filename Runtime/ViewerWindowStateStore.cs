@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using ImageViewer.Runtime;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Runtime
 {
     // 查看器窗口偏好（大小/位置/最大化）：属用户配置。
     public sealed class ViewerWindowState

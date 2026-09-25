@@ -11,11 +11,10 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using ImageViewer.Runtime;
 using ImageViewer.Services;
-using ImageViewer.Views;
 using Microsoft.Win32;
 using Wpf.Ui.Controls;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Views
 {
     // 查看器窗口：只做看图（视口 + 底栏）。
     public partial class ViewerWindow : FluentWindow

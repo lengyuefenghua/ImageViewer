@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace ImageViewer.Viewer
+namespace ImageViewer.Services
 {
     // 「复制到」目标：每行一个目录，附带原样拼在扩展名前的后缀。
     public sealed class CopyTarget

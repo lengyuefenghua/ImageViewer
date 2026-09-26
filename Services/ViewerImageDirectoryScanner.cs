@@ -49,6 +49,7 @@ namespace ImageViewer.Services
 
             try
             {
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器目录扫描开始：" + directory, null);
                 foreach (var file in Directory.GetFiles(directory, "*", SearchOption.TopDirectoryOnly))
                 {
                     if (ImageFileWhitelist.IsWhitelisted(file)) images.Add(file);

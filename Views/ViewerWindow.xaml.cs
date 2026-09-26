@@ -38,6 +38,7 @@ namespace ImageViewer.Views
         private HwndSource windowSource;
         private DispatcherTimer folderToastTimer;
         private string windowStatePath;
+        private Task<System.Drawing.Size> startupImageDimensions;
         private Key? copyToShortcut;
         private ViewerThumbnailListViewModel thumbnailList;
         private bool syncingThumbnailSelection;
@@ -69,6 +70,16 @@ namespace ImageViewer.Views
             windowStatePath = ResolveWindowStatePath();
             copyToShortcut = ResolveCopyShortcut();
             RestoreWindowState();
+            if (startupPaths != null && startupPaths.Count == 1)
+            {
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "首图尺寸预读开始", null);
+                startupImageDimensions = Task.Run(() =>
+                {
+                    var size = BitmapSourceLoader.ReadDimensions(startupPaths[0]);
+                    Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "首图尺寸预读完成", null);
+                    return new System.Drawing.Size((int)size.Width, (int)size.Height);
+                });
+            }
         }
 
         private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -82,6 +93,7 @@ namespace ImageViewer.Views
 
             try
             {
+                Diagnostics.Sink.Log(LogSeverity.Debug, LoggerName, "查看器窗口 Loaded", null);
                 await LoadStartupPathsAsync();
             }
             catch (Exception error)
@@ -95,20 +107,71 @@ namespace ImageViewer.Views
         {
             if (startupPaths.Count == 1)
             {
-                var single = startupPaths[0];
-                IReadOnlyList<string> searchResults;
-                // 搜索结果直读已内置 300ms 预算，仍留在 UI 线程（Shell COM 需要 STA）。
-                if (SearchResultsProvider.TryGetSearchResultImages(single, out searchResults))
-                {
-                    await LoadExplicitListAsync(searchResults, IndexOfIgnoreCase(searchResults, single));
-                    return;
-                }
-
-                await LoadDirectoryContextAsync(single);
+                await LoadSingleImageThenDirectoryContextAsync(startupPaths[0]);
                 return;
             }
 
             await LoadExplicitListAsync(startupPaths, 0);
+        }
+
+        // 单张启动先显示用户指定的图片，目录枚举延后，避免导航准备挡住首图。
+        private async Task LoadSingleImageThenDirectoryContextAsync(string path)
+        {
+            if (String.IsNullOrWhiteSpace(path)) return;
+
+            explicitList = false;
+            imagePath = path;
+            images = new[] { path };
+            viewer.MarkStartupImagePending();
+            await ApplyResultSetAsync(0, startupImageDimensions);
+            if (isClosed) return;
+            if (viewer.DecodeTask == null) viewer.ClearStartupImagePending();
+            if (viewer.DecodeTask != null) await viewer.DecodeTask;
+            if (isClosed) return;
+
+            try
+            {
+                IReadOnlyList<string> searchResults;
+                // Shell COM 探测仍在 UI 线程执行，但延后到首图解码完成后。
+                if (SearchResultsProvider.TryGetSearchResultImages(path, out searchResults))
+                {
+                    explicitList = true;
+                    images = searchResults;
+                    siblingDirectories = new string[0];
+                    siblingDirectoryIndex = -1;
+                    var searchIndex = IndexOfIgnoreCase(images, path);
+                    viewer.SetResultSet(images, searchIndex);
+                    if (thumbnailList != null) thumbnailList.Dispose();
+                    thumbnailList = new ViewerThumbnailListViewModel(images);
+                    ThumbnailListBox.ItemsSource = thumbnailList.Items;
+                    ThumbnailPane.Visibility = thumbnailList.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+                    UpdateThumbnailSelection(searchIndex);
+                    ShowFolderSwitchToast("已打开 " + images.Count + " 张（连续浏览）");
+                    return;
+                }
+
+                var directoryImages = await Task.Run(() => ViewerImageDirectoryScanner.Scan(path));
+                if (isClosed) return;
+
+                var siblings = await Task.Run(() => BuildSiblingDirectories(path));
+                if (isClosed) return;
+
+                images = directoryImages;
+                siblingDirectories = siblings.Item1;
+                siblingDirectoryIndex = siblings.Item2;
+                var selectedIndex = IndexOfIgnoreCase(images, path);
+                viewer.SetResultSet(images, selectedIndex);
+
+                if (thumbnailList != null) thumbnailList.Dispose();
+                thumbnailList = new ViewerThumbnailListViewModel(images);
+                ThumbnailListBox.ItemsSource = thumbnailList.Items;
+                ThumbnailPane.Visibility = thumbnailList.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+                UpdateThumbnailSelection(selectedIndex);
+            }
+            catch (Exception error)
+            {
+                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "图片已打开，但准备目录导航失败：" + path, error);
+            }
         }
 
         // 目录上下文：扫描该目录、建立同级目录清单，定位到该图；左右到边界可切同级目录。
@@ -166,7 +229,7 @@ namespace ImageViewer.Views
         }
 
         // 应用结果集：重建缩略图并打开指定下标。
-        private async Task ApplyResultSetAsync(int index)
+        private async Task ApplyResultSetAsync(int index, Task<System.Drawing.Size> startupDimensions = null)
         {
             if (isClosed) return;
 
@@ -179,7 +242,7 @@ namespace ImageViewer.Views
             thumbnailList = new ViewerThumbnailListViewModel(images);
             ThumbnailListBox.ItemsSource = thumbnailList.Items;
             ThumbnailPane.Visibility = thumbnailList.IsVisible ? Visibility.Visible : Visibility.Collapsed;
-            await OpenImageAtAsync(index);
+            await OpenImageAtAsync(index, startupDimensions);
             if (isClosed) return;
             UpdateThumbnailSelection(viewer.CurrentPosition - 1);
             Keyboard.Focus(this);
@@ -484,7 +547,7 @@ namespace ImageViewer.Views
             });
         }
 
-        private async Task OpenImageAtAsync(int index)
+        private async Task OpenImageAtAsync(int index, Task<System.Drawing.Size> startupDimensions = null)
         {
             if (index < 0 || index >= images.Count) return;
 
@@ -498,7 +561,13 @@ namespace ImageViewer.Views
             int width = 1, height = 1;
             try
             {
-                var size = await Task.Run(() => BitmapSourceLoader.ReadDimensions(images[index]));
+                var size = startupDimensions == null
+                    ? await Task.Run(() =>
+                    {
+                        var dimensions = BitmapSourceLoader.ReadDimensions(images[index]);
+                        return new System.Drawing.Size((int)dimensions.Width, (int)dimensions.Height);
+                    })
+                    : await startupDimensions;
                 width = (int)size.Width;
                 height = (int)size.Height;
             }

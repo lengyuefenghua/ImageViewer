@@ -23,6 +23,7 @@ namespace ImageViewer.Views
         // 指针取色的复用缓冲，避免鼠标移动时反复分配。
         private readonly byte[] pixelBuffer = new byte[4];
         private long loadGeneration;
+        private bool startupImagePending;
         private Action escape;
         private ViewportState viewport;
         private IReadOnlyList<string> resultSet = new List<string>();
@@ -122,12 +123,21 @@ namespace ImageViewer.Views
         public int ViewportWidth { get { return viewportWidth; } private set { viewportWidth = value; } }
         public int ViewportHeight { get { return viewportHeight; } private set { viewportHeight = value; } }
 
+        internal void MarkStartupImagePending() { startupImagePending = true; }
+        internal void ClearStartupImagePending() { startupImagePending = false; }
+
         public void SetResultSet(IReadOnlyList<string> paths)
         {
+            SetResultSet(paths, -1);
+        }
+
+        public void SetResultSet(IReadOnlyList<string> paths, int selectedIndex)
+        {
             if (paths == null) throw new ArgumentNullException("paths");
+            if (selectedIndex < -1 || selectedIndex >= paths.Count) throw new ArgumentOutOfRangeException("selectedIndex");
 
             resultSet = new List<string>(paths);
-            currentIndex = -1;
+            currentIndex = selectedIndex;
             Changed("CurrentPosition");
             Changed("ResultCount");
         }
@@ -324,11 +334,18 @@ namespace ImageViewer.Views
 
             IsLoading = false;
             Changed("IsLoading");
+            if (startupImagePending)
+            {
+                startupImagePending = false;
+                Diagnostics.Sink.Log(LogSeverity.Info, "ImageViewer", "启动首图解码完成", null);
+            }
         }
 
         private void CompleteDecodeFailure(string path, long generation, Exception error)
         {
             if (generation != loadGeneration || !String.Equals(path, FilePath, StringComparison.Ordinal)) return;
+
+            startupImagePending = false;
 
             var message = error == null ? "图片解码失败。" : error.GetBaseException().Message;
             // 主图解码失败是关键路径：必须带图片路径记 Error（显示占位图，进程不崩溃）。

@@ -16,6 +16,9 @@ import { spawn } from "child_process"
 //
 // 覆盖通知：done / error / permission / question（default 为兜底文案）。
 // 子会话仅“完成”不通知；权限和提问仍会通知，避免子代理被卡住而无人处理。
+// 权限误报抑制：autoaccept 等自动审批会在毫秒级回复权限请求（如 external_directory）；
+//              permission.asked 不立即通知，延迟 DEFAULT_PERMISSION_GRACE_MS 后复查该请求是否仍 pending，
+//              仍 pending 才通知，已被自动批准的直接静音。提问/完成/失败不受影响。
 // 关闭方式：
 //   - 环境变量 LAZY_NOTIFY=0（全关）
 //   - cli.json 的 attention.notifications: false（全关）
@@ -68,17 +71,30 @@ export function resolveCandidates(options = {}) {
   return []
 }
 
-function cliNotificationsDisabled() {
+// 读取 CLI 设置 cli.json（全局客户端设置，非项目设置）。不缓存以便 TUI 热更新后立即生效。
+function readCliConfig() {
   const candidates = []
   if (process.env.XDG_CONFIG_HOME) candidates.push(path.join(process.env.XDG_CONFIG_HOME, "opencode", "cli.json"))
   candidates.push(path.join(os.homedir(), ".config", "opencode", "cli.json"))
   for (const file of candidates) {
     try {
-      const config = JSON.parse(fs.readFileSync(file, "utf8"))
-      return config?.attention?.notifications === false
+      return JSON.parse(fs.readFileSync(file, "utf8"))
     } catch {}
   }
-  return false
+  return null
+}
+
+function cliNotificationsDisabled() {
+  return readCliConfig()?.attention?.notifications === false
+}
+
+// 自动审批（如 cli.json 的 session.permissions=autoaccept）会在毫秒级回复权限请求。
+// 通知前延迟这段时间再复查请求是否仍 pending，避免为已自动批准的请求误报。
+const DEFAULT_PERMISSION_GRACE_MS = 500
+
+function permissionGraceMs() {
+  const raw = Number(process.env.LAZY_NOTIFY_PERMISSION_GRACE_MS)
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_PERMISSION_GRACE_MS
 }
 
 function powerShellString(value) {
@@ -152,8 +168,9 @@ const LABELS = {
   default: "OpenCode",
 }
 
-// notifier(title, message) 可注入，便于测试断言。
-export function createPlugin(notifier = showToast) {
+// notifier(title, message) 可注入，便于测试断言；options.permissionGraceMs 可注入，便于测试。
+export function createPlugin(notifier = showToast, options = {}) {
+  const graceMs = options.permissionGraceMs ?? permissionGraceMs()
   return {
     id: "lazy-notify",
 
@@ -185,6 +202,25 @@ export function createPlugin(notifier = showToast) {
         }
       }
 
+      // 待审批权限请求 -> 延迟通知计时器；收到 permission.replied 即取消。
+      const permissionTimers = new Map()
+      const clearPermissionTimer = (requestID) => {
+        const timer = permissionTimers.get(requestID)
+        if (timer === undefined) return
+        clearTimeout(timer)
+        permissionTimers.delete(requestID)
+      }
+
+      // 宽限到期后复查：请求已消失（被自动批准）则静默，仍 pending 才通知。
+      // 复查失败时退回通知，宁可多提醒也不漏掉真正卡住的人工审批。
+      const settledOrNotify = async (sessionID, requestID, action) => {
+        try {
+          const pending = await ctx.permission.list({ sessionID })
+          if (Array.isArray(pending) && !pending.some((request) => request?.id === requestID)) return
+        } catch {}
+        notify("permission", action || "权限请求")
+      }
+
       const handleEvent = async (event) => {
         const type = event?.type
         const data = event?.data || {}
@@ -209,7 +245,24 @@ export function createPlugin(notifier = showToast) {
 
         if (type === "permission.asked") {
           if (!belongsHere(await resolveDir(sessionID))) return
-          notify("permission", data.action || "权限请求")
+          const requestID = data.id
+          // 无请求 id 时无法复查 pending，退回立即通知。
+          if (typeof requestID !== "string") {
+            notify("permission", data.action || "权限请求")
+            return
+          }
+          clearPermissionTimer(requestID)
+          const timer = setTimeout(() => {
+            permissionTimers.delete(requestID)
+            void settledOrNotify(sessionID, requestID, data.action)
+          }, graceMs)
+          permissionTimers.set(requestID, timer)
+          return
+        }
+
+        if (type === "permission.replied") {
+          // 已被回复（人工或自动批准），撤销延迟通知。
+          clearPermissionTimer(data.requestID)
           return
         }
 
@@ -255,7 +308,11 @@ export function createPlugin(notifier = showToast) {
         } catch {}
       })()
 
-      return () => controller.abort()
+      return () => {
+        controller.abort()
+        for (const timer of permissionTimers.values()) clearTimeout(timer)
+        permissionTimers.clear()
+      }
     },
   }
 }

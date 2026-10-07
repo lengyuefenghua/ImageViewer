@@ -42,10 +42,11 @@ const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mil
 const DEMO = "C:\\proj\\demo"
 const OTHER = "C:\\proj\\other"
 
-function harness() {
+function harness(options = {}) {
   const stream = eventStream()
   const calls = []
   const sessionGets = []
+  const pending = []
   const ctx = {
     location: { directory: DEMO },
     session: {
@@ -54,10 +55,16 @@ function harness() {
         return { id: sessionID, title: `会话-${sessionID}`, location: { directory: sessionID.startsWith("foreign") ? OTHER : DEMO } }
       },
     },
+    permission: {
+      async list() {
+        return pending.map((id) => ({ id }))
+      },
+    },
     event: { subscribe: stream.subscribe },
   }
-  const plugin = createPlugin((title, message) => calls.push({ title, message }))
-  return { stream, calls, sessionGets, ctx, plugin }
+  // permissionGraceMs 注入短值以保持测试快速、确定，不依赖开发机环境变量。
+  const plugin = createPlugin((title, message) => calls.push({ title, message }), { permissionGraceMs: 20, ...options })
+  return { stream, calls, sessionGets, pending, ctx, plugin }
 }
 
 const created = (sessionID, directory, parentID) => ({ type: "session.created", data: { sessionID, parentID, location: { directory } } })
@@ -68,9 +75,10 @@ test("lazy-notify exports a V2 definition", () => {
 })
 
 test("lazy-notify maps notifications, skips child completion, and ignores other locations", async () => {
-  const { stream, calls, sessionGets, ctx, plugin } = harness()
+  const { stream, calls, sessionGets, ctx, plugin, pending } = harness()
   const cleanup = await plugin.setup(ctx)
 
+  pending.push("per-ask-1", "per-ask-2")
   stream.push(created("parent-1", DEMO))
   stream.push(created("child-1", DEMO, "parent-1"))
   stream.push(created("foreign-1", OTHER))
@@ -78,19 +86,19 @@ test("lazy-notify maps notifications, skips child completion, and ignores other 
   stream.push({ type: "session.execution.succeeded", data: { sessionID: "child-1" } })
   stream.push({ type: "session.execution.succeeded", data: { sessionID: "foreign-1" } })
   stream.push({ type: "session.execution.failed", data: { sessionID: "parent-1", error: { message: "boom" } } })
-  stream.push({ type: "permission.asked", data: { sessionID: "parent-1", action: "bash" } })
+  stream.push({ type: "permission.asked", data: { sessionID: "parent-1", id: "per-ask-1", action: "bash" } })
   stream.push({ type: "form.created", data: { form: { sessionID: "parent-1", title: "继续吗" } } })
-  stream.push({ type: "permission.asked", data: { sessionID: "child-1", action: "edit" } })
+  stream.push({ type: "permission.asked", data: { sessionID: "child-1", id: "per-ask-2", action: "edit" } })
   stream.push({ type: "form.created", data: { form: { sessionID: "child-1", title: "子问题" } } })
   await sleep(100)
 
   assert.deepEqual(calls, [
     { title: "OpenCode · demo", message: "任务完成：会话-parent-1" },
     { title: "OpenCode · demo", message: "任务失败：boom" },
-    { title: "OpenCode · demo", message: "需要确认：bash" },
     { title: "OpenCode · demo", message: "需要回答：继续吗" },
-    { title: "OpenCode · demo", message: "需要确认：edit" },
     { title: "OpenCode · demo", message: "需要回答：子问题" },
+    { title: "OpenCode · demo", message: "需要确认：bash" },
+    { title: "OpenCode · demo", message: "需要确认：edit" },
   ])
   assert.deepEqual(sessionGets, ["parent-1", "parent-1"])
 
@@ -109,6 +117,27 @@ test("notifications for unknown sessions are resolved and filtered by their loca
   await sleep(80)
 
   assert.deepEqual(calls, [{ title: "OpenCode · demo", message: "需要回答：是否继续" }])
+
+  await cleanup()
+  stream.finish()
+})
+
+test("权限通知延迟复查：自动批准的不通知，仍待处理的才通知", async () => {
+  const { stream, calls, ctx, plugin, pending } = harness({ permissionGraceMs: 30 })
+  const cleanup = await plugin.setup(ctx)
+
+  stream.push(created("parent-1", DEMO))
+  // 自动批准：宽限内收到 permission.replied
+  stream.push({ type: "permission.asked", data: { sessionID: "parent-1", id: "per-auto", action: "external_directory" } })
+  stream.push({ type: "permission.replied", data: { sessionID: "parent-1", requestID: "per-auto", reply: "once" } })
+  // 自动批准：未收到 replied，但到期复查已不在 pending
+  stream.push({ type: "permission.asked", data: { sessionID: "parent-1", id: "per-gone", action: "external_directory" } })
+  // 仍需人工：到期复查仍在 pending
+  pending.push("per-wait")
+  stream.push({ type: "permission.asked", data: { sessionID: "parent-1", id: "per-wait", action: "external_directory" } })
+  await sleep(120)
+
+  assert.deepEqual(calls, [{ title: "OpenCode · demo", message: "需要确认：external_directory" }])
 
   await cleanup()
   stream.finish()

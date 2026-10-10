@@ -1,6 +1,6 @@
 ---
 name: execute-change
-description: 用于安全执行 tasks.md：选取下一个待办任务，采用 TDD（或按需子代理），更新进度，遇到阻塞即停。
+description: 用于安全执行 tasks.md：选取下一个待办任务，按 tdd-cycle 取舍测试（或按需子代理），更新进度，遇到阻塞即停。
 license: MIT
 ---
 
@@ -19,14 +19,14 @@ license: MIT
 ## 模式选择
 
 - tiny：直接修改，不用本技能。
-- patch：inline TDD 通常足够。
+- patch：inline 实现，测试按 `tdd-cycle` 取舍（默认不写）。
 - full：默认 inline 实现。任务独立可并行、或需要隔离上下文时，加载 `subagent-dev` 派发子代理。
 
 ## 单任务循环
 
 1. 复述任务和对应 spec scenario，并列出本任务的日志点（事件/级别/上下文；无则写明原因）。
-2. patch 任务 inline 执行；行为变更先加载 `tdd-cycle`，在生产代码前做 RED。
-3. full 默认 inline；派发子代理时按 `subagent-dev` 执行，子代理行为变更先加载 `tdd-cycle`。
+2. patch 任务 inline 执行；行为变更先加载 `tdd-cycle` 判断是否值得测试（默认不写）：命中漏测后果闸的在生产代码前做 RED，其余写明「无测试：<原因>」。
+3. full 默认 inline；派发子代理时按 `subagent-dev` 执行，子代理行为变更先加载 `tdd-cycle` 判断是否值得测试（默认不写）。
 4. 运行 `tasks.md` 中的聚焦验证命令，并读取输出。
 5. 派发子代理的 full 任务由主控读取 diff、独立重跑验证并审查规格符合性和 Lean 最小性。
 6. 只有读到新证据后才勾选 checkbox。勾选前逐点确认第 1 步列出的日志点已落地（缺则补），并确认关键处有注释（对照 AGENTS.md 日志/注释规范）。**界面任务**还必须在勾选前加载 `ui-visual-verify`：启动应用、截取改动后的真实界面、观察截图并对照 spec，不符则修正后重截，直到符合。

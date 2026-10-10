@@ -20,7 +20,9 @@ full/patch 变更**完成前必须自审**（由 `finish-change` 收尾门统一
 
 所有级别（tiny/patch/full）都必须遵守仓库 `AGENTS.md` 的日志与注释规范：日志是所有行为变更的交付物——必须评估并列出日志点（事件 + 级别 + 上下文），涉及外部边界/异常降级重试/状态转换/用户可见结果的必须落地，确实不适用的写明原因，用级别控制输出内容；关键处（非显然意图/不变量/边界/反直觉分支/公共契约）有中文注释。缺失视为缺陷，full/patch 审查按 Important 处理。豁免：很小的一次性验证/临时项目按项目整体豁免，需一句话说明。
 
-界面/前端/GUI 变更（页面、组件、样式、布局、响应式、窗口、对话框、自绘/画布）：在**澄清阶段**给出**文字 UI 草图**（布局/区块/组件/交互要点；简单界面即文字草图，复杂界面可另出单文件 HTML demo），并问用户是否使用视觉测试与验证（`visualVerify`）；复杂界面再问是否产出 HTML 设计效果 demo（`designDemo`）。`visualVerify=false` 时本变更**不得使用** `opencode_computer_*`；`designDemo=true` 时产出单文件 `docs/changes/<change>/design-demo.html`（内联 CSS/JS、示例数据、基本交互）；`visualVerify=true` 时加载 `ui-visual-verify`，用自动化操作工具 `opencode_computer_*` 实际操作应用并观察改动后的真实界面截图，闭环比对规格直到实际渲染符合要求。没有真实截图证据，不得声明完成、提交或归档。
+测试纪律（所有级别）：**测试默认不写**；只有「不写会导致崩溃/闪退、内存·资源泄漏、系统资源异常占用、数据损坏·丢失、破坏系统运行、静默错误结果，且该后果可稳定复现」的行为才写，入选的走 RED-GREEN。不追求覆盖率，不为平凡代码、纯转发、结构导出、每个分支/导出与低风险边角写测试；断言行为与状态，不做文字断言（文案、提示词、日志等文本内容）。不写是正常结果，一句话写明 `无测试：<原因>`；后果清单与判定见 `tdd-cycle`。
+
+界面/前端/GUI 变更（页面、组件、样式、布局、响应式、窗口、对话框、自绘/画布）：在**澄清阶段**给出**文字 UI 草图**（布局/区块/组件/交互要点；简单界面即文字草图，复杂界面可另出单文件 HTML demo），并问用户是否使用视觉测试与验证（`visualVerify`）；复杂界面再问是否产出 HTML 设计效果 demo（`designDemo`）。`visualVerify=false` 时本变更**不得使用** `lazy_computer_*`；`designDemo=true` 时产出单文件 `docs/changes/<change>/design-demo.html`（内联 CSS/JS、示例数据、基本交互）；`visualVerify=true` 时加载 `ui-visual-verify`，用自动化操作工具 `lazy_computer_*` 实际操作应用并观察改动后的真实界面截图，闭环比对规格直到实际渲染符合要求。没有真实截图证据，不得声明完成、提交或归档。
 
 ## 分级
 
@@ -28,19 +30,19 @@ full/patch 变更**完成前必须自审**（由 `finish-change` 收尾门统一
 
 适用于文案、注释、配置值、样式、小 bug 修复、局部优化和低风险小调整。可以跨文件（如同时改几处文案/样式/配置值），但不得改变跨文件的接口/契约；改动小到能一眼审完、根因明确。根因不明或需要系统诊断的 bug 走 `debug-fix` 加 patch/full。
 
-做最小安全修改，不创建 change 产物、不做审查。验证：有测试跑聚焦测试；改动涉及**重要代码**（关键路径：I/O/网络/DB/文件、错误/降级/重试、状态转换、启动关闭；公共契约；数据处理）时**必须**做聚焦测试或等价验证，不得跳过。
+做最小安全修改，不创建 change 产物、不做审查、不新增测试。验证：跑已有的相关聚焦测试；改动涉及**重要代码**（关键路径：I/O/网络/DB/文件、错误/降级/重试、状态转换、启动关闭；公共契约；数据处理）时**必须**做聚焦测试或等价验证，不得跳过。
 
 完成后在 `docs/changes/tiny-log.md` 追加三行记录（标题/改动/验证）。
 
 ### patch
 
-适用于单功能/子系统内的功能开发、需要完整 TDD 循环的行为变更、较大 bug 修复、单模块重构与单模块鉴权/安全/数据模型调整。跨 UI/逻辑/测试层的垂直切片是常态，不算跨模块。
+适用于单功能/子系统内的功能开发、行为变更、较大 bug 修复、单模块重构与单模块鉴权/安全/数据模型调整。跨 UI/逻辑/测试层的垂直切片是常态，不算跨模块。
 
 默认只写执行清单 `docs/changes/<change>/tasks.md` 和 `state.json`；`note.md` 默认不写，用户要求恢复记录时才写。
 
 创建轻量 change 后进入 `planning`：`{"level":"patch","phase":"planning","planned":true,"reviewed":false,"archived":false}`。同时写入 `.opencode/lazy/state.json` 的 `activeChange`、`level` 和 `phase`。
 
-优先 TDD。范围保持紧凑。除非行为不清晰、或外部可见程度高到需要契约，否则不要创建完整 proposal/spec/design。完成后走轻量审查（见 `review-change`）。
+测试按 `tdd-cycle` 准入闸取舍（默认不写）。范围保持紧凑。除非行为不清晰、或外部可见程度高到需要契约，否则不要创建完整 proposal/spec/design。完成后走轻量审查（见 `review-change`）。
 
 ### full
 
@@ -77,9 +79,9 @@ full 变更的实现默认由主控 inline 完成。任务独立且可并行、�
 ## 路由
 
 - `tiny`：实现、修复、优化或依赖选型时，若 Lean 模式不是 `off`，加载 `lean-check`；不创建 change、不做审查；按 tiny 的验证要求做聚焦验证，完成后追加 `docs/changes/tiny-log.md` 三行记录。
-- `patch`：先加载 `task-plan`，再加载 `execute-change`；行为任务在实现前加载 `tdd-cycle`；完成后加载 `review-change`（轻量审查）和 `finish-change`。
-- `full`：先加载 `grill-me`（先统一核心术语写入 `CONTEXT.md`，需求确认结论落盘 `proposal.md` 的 `## 需求确认` 段），通过后加载 `spec-design`、`task-plan`、`execute-change`；行为任务加载 `tdd-cycle`；任务可并行或需隔离上下文时加载 `subagent-dev`；完成后加载 `review-change`（双轴审查）和 `finish-change`，归档并执行 `tasks.md` 的提交任务。
+- `patch`：先加载 `task-plan`，再加载 `execute-change`；行为任务在实现前加载 `tdd-cycle` **判断是否值得测试（默认不写）**；完成后加载 `review-change`（轻量审查）和 `finish-change`。
+- `full`：先加载 `grill-me`（先统一核心术语写入 `CONTEXT.md`，需求确认结论落盘 `proposal.md` 的 `## 需求确认` 段），通过后加载 `spec-design`、`task-plan`、`execute-change`；行为任务加载 `tdd-cycle` **判断是否值得测试（默认不写）**；任务可并行或需隔离上下文时加载 `subagent-dev`；完成后加载 `review-change`（双轴审查）和 `finish-change`，归档并执行 `tasks.md` 的提交任务。
 - Bug/失败/回归：根因不明或难以复现时，在修复前先加载 `debug-fix`；小 bug 修复直接按分级路径走。
-- 界面/前端/GUI 变更：实现后加载 `ui-visual-verify`，用自动化操作工具 `opencode_computer_*` 实际操作应用并观察改动后的真实界面截图，完成闭环视觉实际验证，无证据不得声明完成。
+- 界面/前端/GUI 变更：实现后加载 `ui-visual-verify`，用自动化操作工具 `lazy_computer_*` 实际操作应用并观察改动后的真实界面截图，完成闭环视觉实际验证，无证据不得声明完成。
 
 不确定时，推荐最轻的一档，并用一小段话解释原因。

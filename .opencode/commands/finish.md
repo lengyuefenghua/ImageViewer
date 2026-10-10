@@ -11,7 +11,7 @@ description: 验证、审查、同步规格并归档当前 change
 1. 读取 active change 和 `tasks.md`。
 2. full change：确认 `tasks.md` 中除提交任务外的任务全部完成且有新鲜验证证据；未达标不得归档或提交。
 3. 运行项目测试和 tasks.md 中列出的验证命令。
-4. 执行 `review-change`（full 双轴；patch 轻量）：spec compliance、TDD evidence、Lean 精简、风险检查；界面变更还需确认真实截图 + 已观察证据；完成前逐条对照 specs/tasks 自审。
+4. 执行 `review-change`（full 双轴；patch 轻量）：spec compliance、测试取舍与证据、Lean 精简、风险检查；界面变更还需确认真实截图 + 已观察证据；完成前逐条对照 specs/tasks 自审。
 5. 检查 delta specs 格式：`ADDED / MODIFIED / REMOVED / RENAMED Requirements`。
 6. 如果用户确认归档，手动同步 delta specs 到 `docs/specs/`：
    - `ADDED` 添加 requirement。

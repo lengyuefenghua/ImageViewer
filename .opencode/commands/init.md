@@ -78,7 +78,7 @@ description: 初始化当前项目并生成紧凑 AGENTS.md
 - Tooling quirks：codegen、generated files、migrations、env loading、dev server、deploy flow。
 - Testing quirks：fixtures、required services、snapshots、昂贵/易 flaky 的 suite。
 - Existing instruction files 中仍然重要的约束。
-- Lazy Flow 最小提醒：开发请求先加载 `using-lazy-flow`；`tiny`（文案/样式/小修复/局部优化，可跨文件不改契约，重要代码必须聚焦测试，三行记录到 `docs/changes/tiny-log.md`）/ `patch` / `full`（仅共享契约/架构级/迁移/高不确定）；行为变化优先 TDD，full 实现默认 inline、按需派发子代理，完成声明前 fresh verification，推送前只跑最小相关命令；`/goal <最终目标>` 可在已确认范围内持续推进，并在阻塞时暂停；界面/前端/GUI 变更必须用自动化操作工具 `opencode_computer_*` 做闭环视觉实际验证（实际操作 + 截图观察）。
+- Lazy Flow 最小提醒：开发请求先加载 `using-lazy-flow`；`tiny`（文案/样式/小修复/局部优化，可跨文件不改契约，重要代码必须聚焦测试，三行记录到 `docs/changes/tiny-log.md`）/ `patch` / `full`（仅共享契约/架构级/迁移/高不确定）；行为变化测试默认不写，命中漏测后果闸（不写会导致崩溃/闪退、内存·资源泄漏、系统资源异常占用、数据损坏·丢失或破坏系统运行，且该后果可稳定复现）才写并走 RED-GREEN，不做文案/提示词/日志等文字断言，full 实现默认 inline、按需派发子代理，完成声明前 fresh verification，推送前只跑最小相关命令；`/goal <最终目标>` 可在已确认范围内持续推进，并在阻塞时暂停；界面/前端/GUI 变更必须用自动化操作工具 `lazy_computer_*` 做闭环视觉实际验证（实际操作 + 截图观察）。
 - 仅在存在真实且长期值得记录的取舍时，写 `docs/adr/` 决策记录。
 
 排除：
@@ -108,9 +108,9 @@ description: 初始化当前项目并生成紧凑 AGENTS.md
 
 ## Workflow
 - Load `using-lazy-flow` before development work, then use Lazy Flow levels: tiny / patch / full. Tiny = copy/style/small fixes/local optimizations (may span files, no contract changes); focused tests required on critical code; append a 3-line entry to `docs/changes/tiny-log.md`.
-- For behavior changes, prefer TDD unless the task is explicitly tiny.
+- For behavior changes, tests are opt-in: write one only when skipping it risks a reproducible crash, leak, resource exhaustion, data loss, or system breakage; run RED-GREEN only for selected tests. Tiny adds no tests. Never assert wording, prompts, or log text.
 - For full changes, implement inline by default; dispatch subagents only for parallel or context-isolated tasks; the controller verifies and reviews the result.
-- For UI/frontend/GUI changes, do closed-loop visual verification with the automation tools `opencode_computer_*` (operate + screenshot): launch the app, drive it, screenshot the changed UI (returned as an image attachment), observe it, compare against spec, fix and re-capture until it matches; never claim done without real screenshot evidence.
+- For UI/frontend/GUI changes, do closed-loop visual verification with the automation tools `lazy_computer_*` (operate + screenshot): launch the app, drive it, screenshot the changed UI (returned as an image attachment), observe it, compare against spec, fix and re-capture until it matches; never claim done without real screenshot evidence.
 - An active `/goal <final objective>` authorizes work only within confirmed scope; log each verified step and pause for decisions or failures.
 - Before claiming done/fixed/passing, run the relevant verification command in the current turn and read output.
 - Write an ADR only for a real, long-lived decision trade-off.

@@ -1,6 +1,6 @@
 ---
 name: task-plan
-description: patch 或 full 变更进入实施前使用：产出具体的 tasks.md，包含 checkbox 任务、TDD 步骤、验证命令和审查门。
+description: patch 或 full 变更进入实施前使用：产出具体的 tasks.md，包含 checkbox 任务、按价值取舍的测试步骤、验证命令和审查门。
 license: MIT
 ---
 
@@ -26,9 +26,9 @@ license: MIT
 ```markdown
 # Tasks
 
-## 1. Tests
+## 1. Tests（仅命中 `tdd-cycle` 漏测后果闸时；否则整节省略，并在对应实现任务写 `无测试：<原因>`）
 
-- [ ] 1.1 在 `exact/path` 为指定行为添加失败测试
+- [ ] 1.1 在 `exact/path` 添加失败测试，后果：<维度>（触发：<场景>）
 - [ ] 1.2 运行 `exact command` 并确认 RED 因 `expected reason` 失败
 
 ## 2. Implementation
@@ -47,8 +47,8 @@ license: MIT
 
 ## 5. Visual verification (仅界面变更且 visualVerify=true)
 
-- [ ] 5.1 启动应用并用 `opencode_computer_wait_for` 等到窗口/控件就绪
-- [ ] 5.2 `opencode_computer_screenshot` 截取改动后的界面（返回图片附件），观察截图并对照 `specs/**/spec.md` 的视觉要求
+- [ ] 5.1 启动应用并用 `lazy_computer_wait_for` 等到窗口/控件就绪
+- [ ] 5.2 `lazy_computer_screenshot` 截取改动后的界面（返回图片附件），观察截图并对照 `specs/**/spec.md` 的视觉要求
 - [ ] 5.3 覆盖要求的状态（默认/空/错误/响应式），不符则修正后重截
 - [ ] 5.4（仅当 `visualReport=true`）用 `save`/`path` 把截图存到 `docs/changes/<change>/evidence/`，并写 `visual-report.md`（嵌图 + 观察 + requirement 映射）
 
@@ -70,17 +70,18 @@ license: MIT
 - **宽重构**（一次机械改动波及全库、无法逐片保持绿色）走 expand–contract：先新增与旧并存 → 分批迁移（每批一个任务，blocked by 展开）→ 旧形式无调用方后删除（blocked by 所有迁移批）。
 - 已知时写明要创建/修改的确切文件。
 - 每个可测任务写明确切的验证命令，并写明 seam（测试打在哪个公共接口）；seams 在规划阶段与用户确认一次。
-- 行为变更要包含 RED 和 GREEN 任务，使用同一个聚焦命令。
+- 测试默认不写：只对通过 `tdd-cycle` 漏测后果闸（不写会导致崩溃/泄漏/资源异常/数据损坏/破坏系统运行，且该后果可复现）的行为排 Tests 任务；不默认每个任务配测试；不为文字断言（文案、提示词、日志文本）排测试。
+- 入选测试的行为要包含 RED 和 GREEN 任务，使用同一个聚焦命令，并写明后果维度；其余写明「无测试：<原因>」。
 - 完成前必须包含一次 `review-change` 审查任务（full：Spec 轴 + Standards 轴；patch：轻量审查），修复 Critical/Important。
 - full 的实现任务默认 inline；需要并行或隔离上下文的任务标明由 `subagent-dev` 派发。
 - **仅界面变更**：先判断是否涉及视觉界面（前端页面/组件、样式、布局、响应式、窗口/对话框、自绘/画布）。
   - 不涉及 → 不加任何视觉验证/demo 任务。
   - 涉及 → **读取澄清阶段确定的 `visualVerify`/`designDemo`（未确定则回到 `/clarify`）**，据此生成任务：
-    - `visualVerify=true` → 加视觉验证任务（格式第 5 节）；`false` → 不加，且本变更不得使用 `opencode_computer_*`。
+    - `visualVerify=true` → 加视觉验证任务（格式第 5 节）；`false` → 不加，且本变更不得使用 `lazy_computer_*`。
     - `designDemo=true` → 加 demo 任务（格式第 4 节）：产出 `docs/changes/<change>/design-demo.html` 并请用户验收。
-- 当 `visualVerify=true` 时，视觉验证任务要写清启动方式、`opencode_computer_*` 的截图调用、以及对照 spec 的判据；full 由主控独立再截一次确认（派发子代理时不能只信子代理截图）。
+- 当 `visualVerify=true` 时，视觉验证任务要写清启动方式、`lazy_computer_*` 的截图调用、以及对照 spec 的判据；full 由主控独立再截一次确认（派发子代理时不能只信子代理截图）。
 - **所有行为任务**都要评估并列出日志点（事件 + 级别 + 上下文）作为验收点，用级别控制输出内容；确实不适用的写明「无日志点：<原因>」。关键注释作为验收点。
-- 任务属于文档/配置/生成物、跳过 TDD 的，在任务文本里说明原因。
+- 任务属于文档/配置/生成物或未通过漏测后果闸、跳过测试的，在任务文本里写明「无测试：<原因>」。
 - **需要人工介入、协同、手动验收或等待用户确认的任务，任务文本必须带 `[人工]` 标记**（如 `- [ ] 3.8 [人工] 停下等待用户确认`）；执行到该任务时停下等用户，不自行推进。
 - **必须**在 `tasks.md` 末尾加自审 + 提交任务（见格式第 6、7 节）：完成前逐条对照 specs/tasks 自审，无缺口后再执行 `git add -- <该变更相关文件> && git commit -m "<type>(<change>): <中文摘要>"`；只 commit 不 push，不用工具代提交。
 - 除非 spec/design 要求，否则不要加大范围重构或清理任务。

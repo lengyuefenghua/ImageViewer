@@ -124,7 +124,7 @@ ${nextHint}
 规则：
 - 必须继续遵守 Lazy Flow、技能加载、TDD、验证和状态机；Goal 不替代这些规则。
 - full 实现默认 inline；任务可并行或需隔离上下文时通过 subagent-dev 派发子代理，主控负责验证、审查和勾选任务。
-- 行为任务必须先加载 tdd-cycle，完成 RED 后再做 GREEN。
+- 行为任务先加载 tdd-cycle 判断是否值得测试（默认不写）；入选的完成 RED 后再做 GREEN。
 - 每完成一个可验证步骤，立即调用 lazy_goal_progress，写明完成内容和验证证据。
 - 最终目标满足（含归档与提交）时才调用 lazy_goal_mark_done 并提供最终验证证据。
 - 需求不清、需要用户决策、验证失败、任务范围不明确、发现冲突、审查有重要发现，或 finish 需要用户确认同步/归档时，调用 lazy_goal_pause 说明原因；不要猜测或越权继续。

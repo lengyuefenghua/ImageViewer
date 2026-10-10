@@ -22,3 +22,7 @@
 - 根因：`ui:FluentWindow` 创建时 `WindowBackdrop.RemoveBackdrop` 把窗口 `Background` 从 DynamicResource 冻结成固定画刷；Wpf.Ui 切主题只重建 MainWindow 背景，设置窗/复制到窗不重建，出现「浅底浅字」；另 `ViewerWindow.OnClosed` 在句柄销毁后调 `SystemThemeWatcher.UnWatch` 抛 “Could not get window handle.”。
 - 改动：`Runtime\ThemeApplier.cs` 订阅 `ApplicationThemeManager.Changed`，主题变化时对非主窗口调 `WindowBackgroundManager.UpdateBackground` 重建背景（Debug 日志：主题+窗口数）；`FollowSystem` 的 `UnWatch` 加异常防护；`Views\ViewerWindow.xaml.cs` 把 `FollowSystem(this,false)` 从 `OnClosed` 移到 `OnClosing`（句柄销毁前取消订阅，避免异常与静态 watcher 列表泄漏）。
 - 验证：`tools\build.ps1` 0 warning / 0 error；`tools\test.ps1` 122/122 通过；启动+`CloseMainWindow` 关窗冒烟后日志 `Could not get window handle` 计数不变（10→10，不再产生新异常）；按用户要求 visualVerify=false，未做界面截图。
+
+## 2026-10-10 版本提升至 1.1.6 并发布
+- 改动：`ImageViewer.csproj` 的 `<Version>` 1.1.4 → 1.1.6（补上 v1.1.5 遗漏的版本号同步）。
+- 验证：`tools\test.ps1 -Build` → 124/124 通过、0 警告；`tools\release.ps1 -Tag v1.1.6 -CreateTag` → `dist\ImageViewer-1.1.6-win-x64.zip`，Release exe 版本 1.1.6；已推送 main 与 tag v1.1.6 触发 CI 发布。

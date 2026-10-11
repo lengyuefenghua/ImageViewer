@@ -62,11 +62,11 @@ license: MIT
 若变更涉及视觉界面（前端页面/组件、样式、布局、响应式、窗口/对话框、自绘/画布）：
 
 1. 给出**文字 UI 草图**（布局/区块/组件/交互要点），让用户在澄清阶段看到设计方向；复杂界面可另给单文件 HTML demo。
-2. 问用户：**是否使用视觉测试与验证（`opencode_computer_*`）？** → `visualVerify`。
+2. 问用户：**是否使用视觉测试与验证（`lazy_computer_*`）？** → `visualVerify`。
    - `true` 时再问**是否需要视觉验收报告** → `visualReport`。
-   - `false` 时本变更**不得使用** `opencode_computer_*`。
+   - `false` 时本变更**不得使用** `lazy_computer_*`。
 3. 界面复杂时（由你判断），再问**是否产出 HTML 设计效果 demo**？→ `designDemo`。
-4. 把结论记入全局 `.opencode/lazy/state.json`（change 建立后由 `spec-design` 同步进 change 的 `state.json`）。
+4. 视觉三开关（`visualVerify`/`visualReport`/`designDemo`）必须来自用户明确确认（默认 `false`，未许可禁止调用 `lazy_computer_*`）；结论先记入全局 `.opencode/lazy/state.json`，change 建立后由 `spec-design` 同步进 change 的 `state.json`。
 
 ## 产物审查（存在 proposal/spec/design 时）
 

@@ -47,7 +47,7 @@ function changeIdFromPath(filePath) {
   return match ? match[1] : null
 }
 
-const FLOW_GUARD = `Lazy Flow 守卫：涉及新增、修改、修复、重构、调试、测试、审查、设计、依赖选型，或会改变项目代码、配置、文档、测试、行为的请求时，在探索、设计或修改前必须调用 skill 工具加载 using-lazy-flow，并按其分级和路由继续；进入后续阶段前必须加载对应技能，不得只凭技能名称或记忆执行。full 变更先加载 grill-me、spec-design、task-plan；实现默认 inline，任务可并行或需隔离上下文时按 subagent-dev 派发。行为变更按 tdd-cycle 判断测试价值（默认不写，命中漏测后果闸才写）。界面/前端/GUI 变更必须加载 ui-visual-verify，用 lazy_computer_* 实际操作应用并观察改动后的真实界面截图，无截图证据不得声明完成。技能已由 OpenCode 注册，不需要文件搜索。纯问答和无开发动作的任务不适用本守卫。`
+const FLOW_GUARD = `Lazy Flow 守卫：涉及新增、修改、修复、重构、调试、测试、审查、设计、依赖选型，或会改变项目代码、配置、文档、测试、行为的请求时，在探索、设计或修改前必须调用 skill 工具加载 using-lazy-flow，按其分级和路由继续；进入后续阶段前加载对应技能，不得凭记忆执行。未经用户明确许可，不得调用 lazy_computer_*（视觉验证）；人工验收通过前禁止提交，git commit 与 git push 都必须获得用户明确许可。技能已由 OpenCode 注册，不需要文件搜索；纯问答和无开发动作的任务不适用本守卫。`
 
 function leanGuard(mode) {
   if (mode === "off") return null
@@ -75,7 +75,8 @@ function countTasks(file) {
     const uncheckedLines = lines.filter((line) => /^\s*-\s*\[ \]/.test(line))
     const unchecked = uncheckedLines.filter((line) => !isCommit(line)).length
     const done = lines.filter((line) => /^\s*-\s*\[[xX]\]/.test(line)).length
-    const manualGate = uncheckedLines.some(isManualGate)
+    // 提交任务是权限门（[人工]），不属于实现阶段的人工阻塞；否则 idle 核对会被全程抑制。
+    const manualGate = uncheckedLines.some((line) => !isCommit(line) && isManualGate(line))
     return { unchecked, done, manualGate }
   } catch {
     return null

@@ -1,26 +1,26 @@
-# opencode computer use tools
+# lazy computer use tools
 
-**Windows 自动化操作工具**（不只是截图）：窗口枚举与管理、后台/前台键鼠输入、PostMessage、UI Automation 控件操作、等待与结果校验，以及截图。作为 OpenCode custom tool 提供（`.opencode/tools/opencode_computer.ts`），零 npm 依赖，后端是常驻 PowerShell 宿主 + 内嵌 C#（P/Invoke / UIA / GDI+）。
+**Windows 自动化操作工具**（不只是截图）：窗口枚举与管理、后台/前台键鼠输入、PostMessage、UI Automation 控件操作、等待与结果校验，以及截图。作为 OpenCode V2 插件提供（`.opencode/plugins/lazy-computer.js`），通过 `ctx.tool.transform` 注册工具；零 npm 依赖，后端是常驻 PowerShell 宿主 + 内嵌 C#（P/Invoke / UIA / GDI+）。
 
-工具名前缀为 `opencode_computer_`。截图（`opencode_computer_screenshot`）只是其中一项能力，用于**观察**；自动化闭环还依赖操作类工具（窗口/键鼠/控件/等待/校验）。
+工具名前缀为 `lazy_computer_`。截图（`lazy_computer_screenshot`）只是其中一项能力，用于**观察**；自动化闭环还依赖操作类工具（窗口/键鼠/控件/等待/校验）。
 
 ## 工具列表
 
 | 工具 | 作用 |
 |---|---|
-| `opencode_computer_windows` | 列出顶层窗口（hwnd、标题、类名、pid、进程、位置尺寸、前台/最小化） |
-| `opencode_computer_displays` | 显示器列表 + DPI 缩放 |
-| `opencode_computer_screenshot` | 截窗口/窗口内区域/整屏，返回 JPEG 图片附件 |
-| `opencode_computer_window` | focus/restore/minimize/maximize/close/move/resize |
-| `opencode_computer_mouse` | move/click/down/up/drag/scroll（前台或后台） |
-| `opencode_computer_key` | 组合键 / 文本（前台或后台） |
-| `opencode_computer_clipboard` | 读/写剪贴板 |
-| `opencode_computer_postmessage` | 向窗口发送原始 PostMessage（高级） |
-| `opencode_computer_controls` | 枚举窗口的 UI Automation 控件树 |
-| `opencode_computer_control` | 操作指定控件（invoke/setvalue/toggle 等），setvalue 默认自动校验 |
-| `opencode_computer_wait_for` | 等窗口/控件/文件出现（`condition=window/control/file`，带超时） |
-| `opencode_computer_verify` | 操作后校验：`check=window/file/value/title` |
-| `opencode_computer_do` | 一次调用顺序执行多步（减少交互次数） |
+| `lazy_computer_windows` | 列出顶层窗口（hwnd、标题、类名、pid、进程、位置尺寸、前台/最小化） |
+| `lazy_computer_displays` | 显示器列表 + DPI 缩放 |
+| `lazy_computer_screenshot` | 截窗口/窗口内区域/整屏，返回 JPEG 图片附件 |
+| `lazy_computer_window` | focus/restore/minimize/maximize/close/move/resize |
+| `lazy_computer_mouse` | move/click/down/up/drag/scroll（前台或后台） |
+| `lazy_computer_key` | 组合键 / 文本（前台或后台） |
+| `lazy_computer_clipboard` | 读/写剪贴板 |
+| `lazy_computer_postmessage` | 向窗口发送原始 PostMessage（高级） |
+| `lazy_computer_controls` | 枚举窗口的 UI Automation 控件树 |
+| `lazy_computer_control` | 操作指定控件（invoke/setvalue/toggle 等），setvalue 默认自动校验 |
+| `lazy_computer_wait_for` | 等窗口/控件/文件出现（`condition=window/control/file`，带超时） |
+| `lazy_computer_verify` | 操作后校验：`check=window/file/value/title` |
+| `lazy_computer_do` | 一次调用顺序执行多步（减少交互次数） |
 
 ## 目标定位
 
@@ -38,7 +38,7 @@
 
 - 后台截图用 `PrintWindow`，可截被遮挡窗口，**不抢焦点**。
 - 窗口最小化时：自动 `SW_SHOWNOACTIVATE` 静默还原 → 截图 → 再最小化（`keep_restored=true` 可保持还原）。
-- 截图返回 `data:image/jpeg;base64,...` 附件，模型可直接观察。
+- 截图返回 `file` 附件（内联 `data:image/jpeg;base64,...`），模型可直接观察。
 - **默认不落盘**：截图以附件返回，临时文件读完即删。需要留档（视觉验收）时用 `save=true` 或 `path=docs/changes/<change>/evidence/xxx.jpg` 保存到项目；`label` 指定文件名标签。证据目录 `docs/changes/**/evidence/` 已加入 `.gitignore`，仅本地验收、不提交。
 - 参数：`client=true` 或 `space=client` 截客户区；`region` 相对客户区(默认)或窗口；`display` 截整屏。
 - 返回元数据含窗口 rect、客户区尺寸、DPI，便于把图像像素映射回坐标。
@@ -77,14 +77,14 @@
 
 ## 指定控件操作（UI Automation）
 
-先用 `opencode_computer_controls` 拿到控件（type/name/id/class/hwnd/rect），再用 `opencode_computer_control`：
+先用 `lazy_computer_controls` 拿到控件（type/name/id/class/hwnd/rect），再用 `lazy_computer_control`：
 
 - 定位：`name` / `id`(AutomationId) / `class_name` / `type` / `index`
 - action：`invoke` `click` `setvalue` `getvalue` `focus` `toggle` `select` `expand` `collapse` `info`
 
 后台可靠、不抢焦点。例：点击按钮用 `invoke`，输入框用 `setvalue`。
 
-## 批量 `opencode_computer_do`
+## 批量 `lazy_computer_do`
 
 ```json
 {
@@ -97,7 +97,7 @@
 }
 ```
 
-`op` 支持：`focus` `screenshot` `type` `key` `mouse` `scroll` `window` `clipboard` `wait` `windows` `resolve` `postmessage` `controls` `control`。截图步骤返回多个图片附件；默认出错继续，`stop_on_error=true` 中断。
+`op` 支持：`focus` `screenshot` `type` `key` `mouse` `scroll` `window` `clipboard` `wait` `windows` `resolve` `postmessage` `controls` `control` `wait_for` `verify`。截图步骤返回多个图片附件；默认出错继续，`stop_on_error=true` 中断。
 
 ## 限制
 
@@ -108,10 +108,11 @@
 
 ## 架构
 
-- `opencode_computer.ts`：工具定义 + 常驻 PowerShell 宿主客户端（JSON 行协议，串行队列，崩溃自动重启）。
-- `computer/opencode-computer-host.ps1`：单入口宿主，`param` 收 JSON，`action` 分派；内嵌 C# 负责 P/Invoke、UIA、GDI+ 截图与 JPEG 编码。
+- `lazy-computer.js`：V2 插件（`id: "lazy-computer"`），在 `setup` 里通过 `ctx.tool.transform` 注册 `lazy_computer_*` 工具；内含常驻 PowerShell 宿主客户端（JSON 行协议，串行队列，崩溃自动重启）与截图落盘路径解析。
+- `computer/lazy-computer-host.ps1`：单入口宿主，`param` 收 JSON，`action` 分派；内嵌 C# 负责 P/Invoke、UIA、GDI+ 截图与 JPEG 编码。
+- 工具执行上下文（V2 Tool.Context）不含 worktree，插件在 `setup` 时用 `ctx.location.directory` 捕获项目目录，供截图相对路径解析。
 - 宿主进程在 OpenCode 退出（stdin 关闭）时自动结束；异常退出后下次调用自动重启。
-- 截图临时目录 `%TEMP%/opencode-computer-use/`，宿主启动时清理超过 5 分钟的残留。
+- 截图临时目录 `%TEMP%/lazy-computer-use/`，宿主启动时清理超过 5 分钟的残留。
 
 ## 确定性（软件自动）vs AI 决策
 
@@ -134,15 +135,16 @@
 
 - `key text`：发送后自动读回输入控件值，包含则返回 `[verified]`，否则 `[verify-mismatch: '...']`；`verify=false` 可关闭。
 - `control setvalue`：写入后自动读回比对，返回 `[verified]` / `[verify-mismatch]`。
-- 独立确认用 `opencode_computer_verify`（`check=value/title/window/file`）。
-- 等待就绪用 `opencode_computer_wait_for`。
+- 独立确认用 `lazy_computer_verify`（`check=value/title/window/file`）。
+- 等待就绪用 `lazy_computer_wait_for`。
 
 ## 测试
 
-`.opencode/test/computer.test.mjs`（`node --test`，随 `npm test` 一起跑）：覆盖工具导出、displays、windows 空/单结果、wait_for、verify、以及记事本上的 `key text`/`control setvalue` 自动校验。
+`.opencode/test/computer.test.mjs`（`node --test`，随 `npm test` 一起跑）：用 mock 的 V2 插件上下文调用 `lazy-computer` 的 `setup` 捕获注册工具，覆盖工具注册、displays、windows 空/单结果、wait_for、verify、截图附件与落盘，以及记事本上的 `key text`/`control setvalue` 自动校验。收尾用导出的 `host.stop()` 关闭常驻宿主。
 
 ## 修复记录
 
+- **V2 迁移**：工具从 V1 custom tool（`.opencode/tools/opencode_computer.ts`，`@opencode-ai/plugin`）迁移为 V2 插件（`.opencode/plugins/lazy-computer.js`，`ctx.tool.transform` 注册）；工具名由 `opencode_computer_*` 统一为 `lazy_computer_*`；入参改用 JSON Schema，结果改用 `{ content }`（文本 + `file` 附件）；worktree 改由 `ctx.location.directory` 捕获。
 - `windows`/`controls` 空结果：宿主不再省略 `result`，空数组返回 `[]`（修复 `undefined is not an object` 崩溃）。
 - `mouse scroll` 向下：负数转 `UInt32` 溢出 → 用 `-band 0xFFFFFFFF`。
 - `postmessage`：补 `WM_NULL/WM_COMMAND/WM_SYSKEY*/WM_MOVE` 等名称。

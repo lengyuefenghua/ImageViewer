@@ -1,6 +1,6 @@
 ---
 name: ui-visual-verify
-description: 涉及界面/前端/GUI/窗口渲染/布局/样式的变更，在声明完成前使用：用自动化操作工具（opencode_computer_*，窗口/键鼠/UIA/截图）实际操作应用并截图观察，闭环比对规格，反复修正直到实际渲染符合要求。
+description: 涉及界面/前端/GUI/窗口渲染/布局/样式的变更，在声明完成前使用：用自动化操作工具（lazy_computer_*，窗口/键鼠/UIA/截图）实际操作应用并截图观察，闭环比对规格，反复修正直到实际渲染符合要求。
 license: MIT
 ---
 
@@ -8,16 +8,17 @@ license: MIT
 
 界面变更不能只靠单测或 DOM 断言。必须用**自动化操作工具实际运行并操作应用**，再**截图观察**，闭环到真实渲染符合规格。
 
-用 `opencode_computer_*` 做**自动化操作**（窗口枚举/管理、键鼠输入、PostMessage、UIA 控件操作、等待、结果校验），截图只是其中用于观察的一环。不要只用截图，也不要用截图代替操作与校验。
+用 `lazy_computer_*` 做**自动化操作**（窗口枚举/管理、键鼠输入、PostMessage、UIA 控件操作、等待、结果校验），截图只是其中用于观察的一环。不要只用截图，也不要用截图代替操作与校验。
 
 ## 何时必须使用
 
-- **仅当本变更 `visualVerify=true` 时使用**；`false` 时本技能不适用，本变更不得使用 `opencode_computer_*`。
+- **仅当用户明确许可本变更使用视觉验证（`visualVerify=true`）时使用**；`false` 或未经用户明确许可时本技能不适用，一律不得调用 `lazy_computer_*`。
+- 许可只来自用户当次的明确确认（澄清/规划阶段的 `visualVerify` 提问）；不得从上下文、习惯或旧变更推断。
 - 前端页面/组件、样式、布局、响应式、主题
 - GUI 应用、窗口/对话框、自绘/画布
 - 用户要求“看效果/截图确认/视觉验证”
 
-tiny 的纯文案改动可豁免，但要说明理由。若 `designDemo=true`，以 `docs/changes/<change>/design-demo.html` 的设计效果为参照；否则以 `design.md` 的 `## UI 草图` 为参照。
+tiny 的纯文案改动可豁免，但要说明理由。参照物优先级：`designDemo=true` 时以 `docs/changes/<change>/design-demo.html` 为准；否则 full 以 `design.md` 的 `## UI 草图` 为准；patch 或没有 `design.md` 时，以澄清阶段确认并记录在 `tasks.md` 中的 UI 草图/视觉任务描述为准。
 
 ## 硬性规则
 
@@ -29,14 +30,14 @@ tiny 的纯文案改动可豁免，但要说明理由。若 `designDemo=true`，
 
 ## 工具（自动化操作工具，非仅截图）
 
-用 `opencode_computer_*`：
+用 `lazy_computer_*`：
 
-- `opencode_computer_windows` / `opencode_computer_wait_for`：找到/等待目标窗口或控件
-- `opencode_computer_screenshot`：截窗口/客户区/区域（后台 PrintWindow，不抢焦点），**直接返回图片附件**供观察
-- `opencode_computer_controls` / `opencode_computer_control`：定位并操作控件（点击、输入、展开菜单）
-- `opencode_computer_key` / `opencode_computer_mouse`：需要真实键鼠时（前台会抢焦点）
-- `opencode_computer_verify`：读回控件值/标题/文件做客观校验
-- `opencode_computer_do`：把「操作→等待→截图」合成一次调用
+- `lazy_computer_windows` / `lazy_computer_wait_for`：找到/等待目标窗口或控件
+- `lazy_computer_screenshot`：截窗口/客户区/区域（后台 PrintWindow，不抢焦点），**直接返回图片附件**供观察
+- `lazy_computer_controls` / `lazy_computer_control`：定位并操作控件（点击、输入、展开菜单）
+- `lazy_computer_key` / `lazy_computer_mouse`：需要真实键鼠时（前台会抢焦点）
+- `lazy_computer_verify`：读回控件值/标题/文件做客观校验
+- `lazy_computer_do`：把「操作→等待→截图」合成一次调用
 
 直接观察截图附件；界面未显示图片或需要重看时才用 `read` 兜底。
 
@@ -44,7 +45,7 @@ tiny 的纯文案改动可豁免，但要说明理由。若 `designDemo=true`，
 
 1. **启动**：按仓库方式启动应用（dev server / 打开应用/窗口）；用 `wait_for` 等就绪。
 2. **到达目标界面**：用 `control`/`key`/`mouse` 导航到要验证的界面/状态。
-3. **截图**：`opencode_computer_screenshot`（窗口或区域），拿到图片。
+3. **截图**：`lazy_computer_screenshot`（窗口或区域），拿到图片。
 4. **观察**：查看截图附件（必要时用 `read` 兜底），逐条对照 spec/design 的视觉要求（布局、文案、颜色、状态，无报错/错位/溢出）。
 5. **判定**：符合 → 记录证据；不符 → 定位原因（代码/样式/数据）→ 修正 → 回到步骤 3。
 6. **状态覆盖**：对 spec 要求的状态重复 2–5。
@@ -62,7 +63,7 @@ tiny 的纯文案改动可豁免，但要说明理由。若 `designDemo=true`，
 
 只有变更涉及视觉界面、且规划阶段用户确认需要验收报告时才做：
 
-- 截图用 `opencode_computer_screenshot` 的 `save`/`path` 存到 `docs/changes/<change>/evidence/`。
+- 截图用 `lazy_computer_screenshot` 的 `save`/`path` 存到 `docs/changes/<change>/evidence/`。
 - 在同目录写 `visual-report.md`：每个状态一张截图（相对路径嵌入）+ 观察结论 + 对应 requirement/scenario。
 - 证据目录 `docs/changes/**/evidence/` 已加入 `.gitignore`，仅本地验收用、不提交。
 - `visualReport=false` 或非界面变更时：不做报告；界面变更仍执行上面的闭环观察，但截图不落盘。

@@ -7,7 +7,7 @@ description: 查看 Lazy Flow 当前状态和恢复建议
 1. `.opencode/lazy/state.json`
 2. `docs/changes/*/state.json`
 3. 活跃 change 的 `tasks.md` checkbox 状态
-4. 活跃 change 的 `proposal.md`、`design.md`、`specs/**/spec.md` 是否存在
+4. 活跃 change 的产物是否存在（`proposal.md`、`design.md`、`specs/**/spec.md`）以及状态字段（`reviewed`、`visualVerify`/`visualReport`/`designDemo`；字段定义见 `using-lazy-flow` 的「状态」）
 5. 全局状态与 active change 的 `level`、`phase` 是否一致
 6. `.opencode/lazy/goal-state.json` 是否存在，以及其 goal、status、turns、最近进展和暂停原因
 7. 该变更是否已提交（`git log` 中是否存在对应 change 的提交）
@@ -23,6 +23,8 @@ Lazy Flow Status
 - Lean: lite/full/ultra/off
 - Artifacts: proposal/specs/design/tasks
 - Tasks: done/total
+- Reviewed: yes/no
+- Visual: verify=yes/no report=yes/no demo=yes/no
 - Next command: <suggestion>
 - Lazy Goal: active/paused/completed/none
 - Committed: yes/no

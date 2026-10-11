@@ -17,17 +17,16 @@
 - 生成文件或迁移：
 
 ## Workflow
-- 任何开发请求先通过 skill 工具加载 `using-lazy-flow` 分级，再行动；已注册技能不需要通过文件搜索寻找。
-- 使用 Lazy Flow 分级：`tiny` 最小修改（文案/样式/小修复/局部优化，可跨文件不改契约；重要代码必须聚焦测试；不审查；三行记录到 `docs/changes/tiny-log.md`）；`patch` 单功能/子系统行为变更（垂直切片跨层不算跨模块）+ 轻量审查；`full` 仅限共享契约/架构级重组/数据迁移/高不确定性 + 双轴审查。
-- 行为变更的测试默认不写；只有不写会导致崩溃/闪退、内存·资源泄漏、系统资源异常占用、数据损坏·丢失或破坏系统运行，且该后果可稳定复现时才写，入选的走 RED-GREEN；断言行为与状态，不做文案、提示词、日志等文字断言。tiny 不新增测试。
-- full 变更澄清先统一核心术语（写入 `CONTEXT.md`），需求确认结论落盘到 `docs/changes/<change>/proposal.md` 的需求确认段，再进入设计。
-- full 实现默认 inline；任务可并行或需隔离上下文时按 `subagent-dev` 派发子代理，主控负责验证、审查和收尾。
-- full 变更不自动续跑：完成前逐条核对 `tasks.md` 是否完整实现（不是最小实现/偷懒），未完成继续、全部完成才收尾。
-- `/goal <最终目标>` 启动的 active Lazy Goal 对已确认范围提供一次性实施授权；每个可验证步骤记录进展，只有最终目标满足后才能完成 Goal。
-- full/patch 变更完成前必须自审（收尾门统一执行，逐条对照 specs/tasks，确认完整实现、无遗漏）；提交是 `tasks.md` 里的任务点：归档后执行 `git commit`（仅该变更相关文件、中文提交说明、只 commit 不 push）。
-- 界面/前端/GUI 变更：澄清阶段给文字 UI 草图（`design.md` 的 `## UI 草图`；patch 放对话），并问用户是否使用视觉测试与验证（`visualVerify`），复杂界面再问是否产出 HTML 设计效果 demo（`designDemo`）；`visualVerify=false` 时本变更不得使用 `lazy_computer_*`；`designDemo=true` 时产出单文件 `design-demo.html`（内联 CSS/JS、示例数据、基本交互，无框架/无构建）；`visualVerify=true` 时用自动化操作工具做闭环视觉实际验证。
-- 声明 done/fixed/passing/complete/ready 之前，在当前回合运行相关验证命令并读取输出。
-- 完成声明与推送前只跑 tasks.md 列出的最小相关命令，禁止惯性全量。
+- 任何开发请求先通过 skill 工具加载 `using-lazy-flow` 分级并按其路由；技能已注册，不需要文件搜索。
+- 分级：`tiny` 最小修改（文案/样式/小修复/局部优化，不改契约；重要代码必须聚焦验证；不审查；三行记录到 `docs/changes/tiny-log.md`）；`patch` 单功能/子系统行为变更 + 轻量审查；`full` 仅限共享契约/架构级重组/数据迁移/高不确定性 + 双轴审查。
+- full 澄清先统一术语（`CONTEXT.md`），需求确认结论落盘 `proposal.md` 的需求确认段，再进入设计。
+- 各纪律的判定以对应技能为唯一出处（测试 → `tdd-cycle`，视觉 → `ui-visual-verify`，收尾/状态 → `finish-change`、`using-lazy-flow`），本文件只留摘要。
+- 测试默认不写：只对命中 `tdd-cycle` 漏测后果闸的行为写测试并走 RED-GREEN；不做文字断言。
+- full/patch 完成前由收尾门自审（逐条对照 specs/tasks）；full 变更不自动续跑，`tasks.md` 未完成就继续。
+- **权限门**：未经用户明确许可，不得调用 `lazy_computer_*`（视觉验证）；**人工验收通过前禁止提交**；`git commit` 与 `git push` 都必须获得用户明确许可（commit 许可不等于 push 许可）。
+- `/goal <最终目标>` 在已确认范围内提供一次性实施授权，持续推进并在阻塞时暂停；不得绕过上述权限门。
+- full 实现默认 inline；任务可并行或需隔离上下文时按 `subagent-dev` 派发，主控负责验证、审查和收尾。
+- 声明 done/fixed/passing 之前，在当前回合运行相关验证命令并读取输出；只跑最小相关命令，禁止惯性全量。
 - 只有存在真实且长期值得记录的取舍时才写 `docs/adr/` 决策记录。
 
 ## 代码注释

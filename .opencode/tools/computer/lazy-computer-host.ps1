@@ -359,7 +359,7 @@ public class Uia {
 
 try { [void][Win32]::SetProcessDpiAwarenessContext([IntPtr](-4)) } catch { try { [void][Win32]::SetProcessDPIAware() } catch {} }
 
-$script:SaveDir = Join-Path $env:TEMP "opencode-computer-use"
+$script:SaveDir = Join-Path $env:TEMP "lazy-computer-use"
 try {
   if (Test-Path $script:SaveDir) {
     Get-ChildItem -LiteralPath $script:SaveDir -File -ErrorAction SilentlyContinue |
@@ -557,7 +557,7 @@ function Invoke-Screenshot($p) {
     $parent = Split-Path -Parent $file
     if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
   } else {
-    $saveDir = Join-Path $env:TEMP "opencode-computer-use"
+    $saveDir = Join-Path $env:TEMP "lazy-computer-use"
     New-Item -ItemType Directory -Force -Path $saveDir | Out-Null
     $file = Join-Path $saveDir ("shot-" + [Guid]::NewGuid().ToString("N") + ".jpg")
   }

@@ -134,24 +134,11 @@ docs/changes/<change>/specs/<capability>/spec.md
 
 ## state.json
 
-创建或更新：
+字段与转换以 `using-lazy-flow` 的「状态」为唯一出处。本阶段创建/更新：
 
-```json
-{
-  "level": "full",
-  "phase": "design",
-  "grilled": true,
-  "planned": false,
-  "reviewed": false,
-  "archived": false,
-  "visualVerify": true,
-  "designDemo": true
-}
-```
-
-界面变更时，把澄清阶段确定的 `visualVerify`/`designDemo` 记录进 change 的 `state.json`（并同步进全局 `.opencode/lazy/state.json`）。
-
-同时更新 `.opencode/lazy/state.json`：`activeChange`、`level = "full"`、`phase = "design"`。
+- change 的 `state.json`：`level = "full"`、`phase = "design"`、`grilled = true`。
+- 界面变更：记录用户明确确认的 `visualVerify`/`visualReport`/`designDemo`（未确认按 `false`）。
+- 全局 `.opencode/lazy/state.json`：`activeChange`、`level = "full"`、`phase = "design"`。
 
 ## 自查门
 

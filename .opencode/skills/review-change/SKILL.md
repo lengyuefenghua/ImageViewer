@@ -1,6 +1,6 @@
 ---
 name: review-change
-description: 代码审查、审查 diff、审查分支/PR/工作区，或实现完成后、收尾前使用：full 双轴完整审查（Spec 轴与 Standards 轴分开汇报、禁止合并重排）；patch 轻量审查（4 条清单）；tiny 不审查。
+description: 代码审查、审查 diff、审查分支/PR/工作区，或实现完成后、收尾前使用：full 双轴完整审查（Spec 轴与 Standards 轴分开汇报、禁止合并重排）；patch 轻量审查（精简清单）；tiny 不审查。
 license: MIT
 ---
 
@@ -35,7 +35,7 @@ license: MIT
 
 1. **规格符合性**：恰好实现了 requirement，不多不少。漏实现 = Critical；范围蔓延（spec 没要求的行为）= Critical。
 2. **测试取舍与证据**：入选测试是否命中漏测后果且可复现；RED 和 GREEN 步骤由最近的命令输出或任务记录证明；RED 因预期原因失败，不是拼写/setup 错误；不做文字断言。
-3. **界面视觉证据**（界面变更）：是否有改动后的**真实截图**且已观察、与 spec 视觉要求一致；缺失或未观察 = Important。
+3. **界面视觉证据**（仅用户明确许可 `visualVerify=true` 的界面变更）：是否有改动后的**真实截图**且已观察、与 spec 视觉要求一致；缺失或未观察 = Important。未获许可的界面变更不要求截图，也不得调用 `lazy_computer_*`。
 
 ## Standards 轴
 
@@ -90,6 +90,8 @@ license: MIT
 ## 验证（收尾）
 
 相关命令在本回合运行过且输出已读。审查两轴各自结束时确认。
+
+给出 `Passed` 且存在 active change 时，把 change 的 `state.json` 的 `reviewed` 置为 `true`；给出 `Needs changes` 时置 `false`。
 
 ## 完成前自审
 

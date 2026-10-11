@@ -30,9 +30,9 @@ license: MIT
 2. 读取输出和退出状态。
 3. 执行 `review-change`：full 做双轴完整审查，patch 做轻量审查。
 4. 验证失败、审查有重要发现或任务未完成时，报告真实状态并先询问，再继续；存在 active Lazy Goal 时调用 `lazy_goal_pause` 记录阻塞原因。
-5. 用户要推送/提交 PR 时：检查 git 状态和远程分支，不重复运行已通过的检查；远程有 CI 时报告 `gh pr checks` 结果，报告保持真实（pending 就是 pending）。
+5. 提交与推送门：**人工验收通过前禁止任何提交**；`git commit` 与 `git push` 都必须获得用户明确许可（许可 commit 不等于许可 push）。用户要推送/提交 PR 时：检查 git 状态和远程分支，不重复运行已通过的检查；远程有 CI 时报告 `gh pr checks` 结果，报告保持真实（pending 就是 pending）。
 6. 归档前用 `git diff` 浏览改动文件清单，确认每个改动文件的验证已被覆盖；未覆盖的说明原因或补验证。
-7. **界面变更**：必须有改动后的真实截图（`opencode_computer_screenshot`）并观察过，对照 `specs/**/spec.md` 的视觉要求；缺失或未观察不得归档、提交或声明完成。无法启动界面时暂停并报告，不要假装完成。
+7. **界面变更**（仅用户明确许可 `visualVerify=true` 时）：必须有改动后的真实截图（`lazy_computer_screenshot`）并观察过，对照 `specs/**/spec.md` 的视觉要求；缺失或未观察不得归档、提交或声明完成。无法启动界面时暂停并报告，不要假装完成；未获许可时不得调用 `lazy_computer_*`，也不要求截图。
 8. **自审**（full/patch，收尾门唯一执行点；tiny 不适用）：完成前必须逐条对照 `specs/**/spec.md` 的 requirement/scenario 与 `tasks.md`，确认完整实现、无遗漏；有缺口先修复。复杂 diff 可派只读子代理辅助，但不强制。
 9. 存在未完成的 `[人工]` 任务时：停下等用户确认，不自行归档或提交。
 
@@ -156,11 +156,11 @@ docs/changes/archive/YYYY-MM-DD-<change>/
 
 - 运行的验证命令和结果。
 - 审查结论。
-- 界面变更：截图证据与观察结论。
+- 界面变更（用户明确许可时）：截图证据与观察结论；未获许可时说明未使用视觉验证。
 - Specs 是否已同步。
 - 归档路径或保持激活的原因。
 - 剩余风险。
 
 存在 active Lazy Goal 时，只有最终目标已满足且上述验证、审查、同步、归档和提交均已完成，才能调用 `lazy_goal_mark_done`，附上最终验证证据。若最终目标尚未满足，调用 `lazy_goal_progress` 记录完成的收尾步骤，让 Goal 继续。
 
-full change 归档前必须确认 `tasks.md` 中**除提交任务外**的任务全部完成且有新鲜验证证据；未达标不得归档或提交。归档并把 `.opencode/lazy/state.json` 置 idle 后，先完成自审（见验证门第 8 条），再执行 `tasks.md` 中的提交任务：`git add -- <该变更相关文件> && git commit -m "<type>(<change>): <中文摘要>"`；只 commit 不 push，不用工具代提交。
+full change 归档前必须确认 `tasks.md` 中**除提交任务外**的任务全部完成且有新鲜验证证据；未达标不得归档。归档并把 `.opencode/lazy/state.json` 置 idle 后，先完成自审（见验证门第 8 条）。**提交门：人工验收通过前禁止提交；只有用户明确许可后才执行 `tasks.md` 中的提交任务**：`git add -- <该变更相关文件> && git commit -m "<type>(<change>): <中文摘要>"`（只 commit 不 push；push 需要单独的明确许可，未获许可不得 push）。

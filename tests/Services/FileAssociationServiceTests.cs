@@ -389,5 +389,58 @@ namespace ImageViewer.Tests.Services
             }
             Assert.Equal(0, result.Cleared);
         }
+
+        [Fact]
+        public void Register_cleans_a_legacy_32bit_registration()
+        {
+            using (var legacyRoot = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32"))
+            {
+                var service = new FileAssociationService(Registry.CurrentUser, testRoot, null, legacyRoot);
+                using (var registered = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32\Software\RegisteredApplications"))
+                {
+                    registered.SetValue(FileAssociationService.FriendlyAppName, @"Software\ImageViewer\Capabilities");
+                    registered.SetValue("ForeignApp", @"Software\Foreign\Capabilities");
+                }
+                using (var capabilities = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32\Software\ImageViewer\Capabilities")) capabilities.SetValue("ApplicationName", "ImageViewer");
+                using (var progId = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32\Software\Classes\ImageViewer.Image")) progId.SetValue(null, "ImageViewer 图片");
+                using (var application = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32\Software\Classes\Applications\ImageViewer.exe")) application.SetValue("FriendlyAppName", "ImageViewer");
+                using (var openWith = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32\Software\Classes\.jpg\OpenWithProgids")) openWith.SetValue(FileAssociationService.ProgId, new byte[0], RegistryValueKind.None);
+
+                service.Register(exePath);
+
+                using (var registered = Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\RegisteredApplications"))
+                {
+                    Assert.Null(registered.GetValue(FileAssociationService.FriendlyAppName));
+                    Assert.Equal(@"Software\Foreign\Capabilities", registered.GetValue("ForeignApp"));
+                }
+                Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\ImageViewer"));
+                Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\ImageViewer.Image"));
+                Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\Applications\ImageViewer.exe"));
+                using (var openWith = Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\.jpg\OpenWithProgids"))
+                {
+                    Assert.Null(openWith.GetValue(FileAssociationService.ProgId));
+                }
+            }
+        }
+
+        [Fact]
+        public void Unregister_cleans_a_legacy_32bit_registration()
+        {
+            using (var legacyRoot = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32"))
+            {
+                var service = new FileAssociationService(Registry.CurrentUser, testRoot, null, legacyRoot);
+                using (var registered = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32\Software\RegisteredApplications"))
+                {
+                    registered.SetValue(FileAssociationService.FriendlyAppName, @"Software\ImageViewer\Capabilities");
+                }
+
+                service.Unregister(exePath);
+
+                using (var registered = Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\RegisteredApplications"))
+                {
+                    Assert.Null(registered.GetValue(FileAssociationService.FriendlyAppName));
+                }
+            }
+        }
     }
 }

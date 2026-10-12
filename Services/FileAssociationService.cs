@@ -31,10 +31,13 @@ namespace ImageViewer.Services
         private readonly string capabilitiesPath;
         private readonly string backupPath;
         private readonly string fileExtsRootPath;
+        // 32 位视图的机器根（WOW6432Node）；null 且 root 非 HKLM 时跳过旧 32 位残留清理。
+        private readonly RegistryKey legacy32Root;
 
         // root 决定注册范围：HKCU（用户级，默认）或 HKLM（机器级，需管理员）。
         // fileExtsRootPath 是用户级候选位置，只应由 HKCU 根的服务实例使用。
-        public FileAssociationService(RegistryKey root = null, string softwareRootPath = "Software", string fileExtsRootPath = null)
+        // legacy32Root 是测试注入的 32 位视图根；生产环境缺省按 HKLM 自动解析。
+        public FileAssociationService(RegistryKey root = null, string softwareRootPath = "Software", string fileExtsRootPath = null, RegistryKey legacy32Root = null)
         {
             if (String.IsNullOrWhiteSpace(softwareRootPath)) throw new ArgumentException("注册表根路径不能为空。", "softwareRootPath");
             this.root = root ?? Registry.CurrentUser;
@@ -43,6 +46,7 @@ namespace ImageViewer.Services
             registeredApplicationsPath = this.softwareRootPath + @"\RegisteredApplications";
             capabilitiesPath = this.softwareRootPath + @"\" + CapabilitiesKeyName + @"\Capabilities";
             backupPath = this.softwareRootPath + @"\" + CapabilitiesKeyName + @"\Backup";
+            this.legacy32Root = legacy32Root;
             this.fileExtsRootPath = String.IsNullOrWhiteSpace(fileExtsRootPath)
                 ? DefaultFileExtsRootPath
                 : fileExtsRootPath.TrimEnd('\\');
@@ -102,6 +106,7 @@ namespace ImageViewer.Services
                     var systemProgId = ReadExtensionProgId(extension);
                     if (!String.IsNullOrWhiteSpace(systemProgId)) RestoreHijackedDefaultVerb(systemProgId);
                 }
+                CleanupLegacy32BitRegistration(executablePath);
                 // RegisteredApplications + Capabilities：让应用出现在「默认应用」列表并可一键设为默认。
                 using (var registered = root.CreateSubKey(registeredApplicationsPath))
                 {
@@ -146,6 +151,7 @@ namespace ImageViewer.Services
                     var systemProgId = ReadExtensionProgId(extension);
                     if (!String.IsNullOrWhiteSpace(systemProgId)) RestoreHijackedDefaultVerb(systemProgId);
                 }
+                CleanupLegacy32BitRegistration(executablePath);
                 root.DeleteSubKeyTree(classesRootPath + "\\" + ProgId, false);
                 root.DeleteSubKeyTree(classesRootPath + @"\Applications\" + Path.GetFileName(executablePath), false);
                 root.DeleteSubKeyTree(softwareRootPath + @"\" + CapabilitiesKeyName, false);
@@ -287,6 +293,73 @@ namespace ImageViewer.Services
             // 只对绝对路径判存在性；相对/内置命令保守视为有效，避免误清。
             if (!Path.IsPathRooted(executable)) return true;
             return File.Exists(executable);
+        }
+
+        // 早期 32 位版本把机器级注册写进 HKLM 的 32 位视图（WOW6432Node），64 位进程不可见；注册/取消时一并清理。
+        private void CleanupLegacy32BitRegistration(string executablePath)
+        {
+            var root32 = ResolveLegacy32Root();
+            if (root32 == null) return;
+
+            try
+            {
+                var cleaned = false;
+                using (var registered = root32.OpenSubKey(@"Software\RegisteredApplications", true))
+                {
+                    if (registered != null && registered.GetValue(FriendlyAppName) != null)
+                    {
+                        registered.DeleteValue(FriendlyAppName, false);
+                        cleaned = true;
+                    }
+                }
+                using (var classes = root32.OpenSubKey(@"Software\Classes", true))
+                {
+                    if (classes != null)
+                    {
+                        cleaned |= DeleteSubKeyIfExists(classes, ProgId);
+                        cleaned |= DeleteSubKeyIfExists(classes, @"Applications\" + Path.GetFileName(executablePath));
+                        foreach (var extension in extensions)
+                        {
+                            using (var openWith = classes.OpenSubKey(extension + @"\OpenWithProgids", true))
+                            {
+                                if (openWith != null && openWith.GetValue(ProgId) != null)
+                                {
+                                    openWith.DeleteValue(ProgId, false);
+                                    cleaned = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                cleaned |= DeleteSubKeyIfExists(root32, @"Software\" + CapabilitiesKeyName);
+                if (cleaned)
+                {
+                    Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "已清理 32 位视图的旧注册残留", null);
+                }
+            }
+            catch (Exception error)
+            {
+                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "清理 32 位视图的旧注册残留失败", error);
+            }
+        }
+
+        // 32 位视图根：优先使用注入的测试根；生产环境仅在机器级（HKLM）root 上自动解析，用户级服务跳过。
+        private RegistryKey ResolveLegacy32Root()
+        {
+            if (legacy32Root != null) return legacy32Root;
+            return root.Name.StartsWith("HKEY_LOCAL_MACHINE", StringComparison.OrdinalIgnoreCase)
+                ? RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32)
+                : null;
+        }
+
+        private static bool DeleteSubKeyIfExists(RegistryKey parent, string subKey)
+        {
+            using (var key = parent.OpenSubKey(subKey))
+            {
+                if (key == null) return false;
+            }
+            parent.DeleteSubKeyTree(subKey, false);
+            return true;
         }
 
         // 历史版本写入的劫持：系统 ProgID 的默认动词指向本程序。默认动词仍指向本程序时还原备份，

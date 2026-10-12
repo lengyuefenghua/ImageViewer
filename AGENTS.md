@@ -16,7 +16,7 @@
 ## Architecture
 - 应用项目 `ImageViewer.csproj` 位于仓库根，源码平铺在同级目录：`Views`（窗口与视图模型：查看器 / 复制到 / 设置）、`Services`（解码、文件关联、浏览扫描、复制）、`Imaging`（视口解码管线）、`Runtime`（日志抽象与实现、路径、配置）；测试在 `tests\`。
 - 入口 `App.xaml.cs` 的 `OnStartup`：先处理首启「设为默认查看器」引导，再按命令行参数打开 `ViewerWindow`（无参数则打开空白窗口）。
-- 图片枚举只扫描图片所在目录的直接子项（白名单 jpg/png/bmp，非递归，资源管理器式自然排序）：`Services\ViewerImageDirectoryScanner.cs`。
+- 图片枚举只扫描图片所在目录的直接子项（白名单 jpg/jpeg/png/bmp，非递归，资源管理器式自然排序）：`Services\ViewerImageDirectoryScanner.cs`。
 - 全部 UI 使用 WPF UI（`Wpf.Ui`）自带控件及其隐式样式；查控件 API 读本地源码 `C:\Users\wtg\Desktop\agent\wpfui-4.3.0`，不要凭记忆猜属性名。
 - CI：推送 `v*` tag 触发 `.github/workflows/release.yml`，版本号解析自 git tag。
 
@@ -24,7 +24,7 @@
 - 开发请求先通过 skill 工具加载 `using-lazy-flow` 分级：`tiny`（文案/样式/小修复/局部优化，可跨文件不改契约；重要代码必须聚焦测试，不审查；三行记录到 `docs/changes/tiny-log.md`）/ `patch` / `full`（仅共享契约/架构级重组/数据迁移/高不确定，双轴审查）。行为变更优先 TDD。
 - 实现、修复、重构、依赖选型与审查前加载 `lean-check`（`leanMode` 非 off 时）：保持最小正确 diff，优先复用与原生能力。
 - full 变更实现默认 inline，仅任务可并行或需隔离上下文时按 `subagent-dev` 派发子代理；主控负责验证、审查与收尾。
-- 界面/GUI 变更必须用自动化操作工具 `opencode_computer_*` 实际操作并截图，闭环对照规格；无真实截图证据不得声明完成。
+- 界面/GUI 变更必须用自动化操作工具 `lazy_computer_*` 实际操作并截图，闭环对照规格；无真实截图证据不得声明完成。
 - 声明完成前在当前轮运行相关验证命令并读取输出；推送前只跑本次改动相关的最小命令，禁止惯性全量。
 - 仅当存在真实、长期值得记录的取舍时才写 `docs/adr/` 决策记录。
 

@@ -3,10 +3,10 @@ using System.IO;
 
 namespace ImageViewer.Services
 {
-    // 图片格式白名单（jpg/png/bmp）。
+    // 图片格式白名单（jpg/jpeg/png/bmp；jpeg 家族含 .jpe/.jpeg/.jfif）。
     internal static class ImageFileWhitelist
     {
-        private static readonly string[] WhitelistedExtensions = { ".jpg", ".png", ".bmp" };
+        private static readonly string[] WhitelistedExtensions = { ".jpg", ".jpe", ".jpeg", ".jfif", ".png", ".bmp" };
 
         public static bool IsWhitelisted(string path)
         {

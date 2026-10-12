@@ -14,7 +14,7 @@
       <StackPanel>
         <ui:TextBlock FontSize="16" FontWeight="Bold" Text="文件关联" />
         <ui:TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                      Text="把 ImageViewer 注册为 jpg/png/bmp 的打开候选，并清除之前选过的图片默认应用（下次打开会重新询问）。机器级注册需要管理员授权（弹出 UAC）；Windows 不允许程序自动设为默认，请在随后打开的系统设置中手动确认。" />
+                      Text="把 ImageViewer 注册为 jpg/jpeg/png/bmp 的打开候选，并清除之前选过的图片默认应用（下次打开会重新询问）。机器级注册需要管理员授权（弹出 UAC）；Windows 不允许程序自动设为默认，请在随后打开的系统设置中手动确认。" />
         <ui:Card Margin="0,12,0,0" Padding="16">
           <StackPanel>
             <ui:TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="#FFE0A030" />

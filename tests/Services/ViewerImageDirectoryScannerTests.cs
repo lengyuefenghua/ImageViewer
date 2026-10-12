@@ -17,6 +17,7 @@ namespace ImageViewer.Tests.Services
                 var jpg = WriteFile(directory, "a.jpg");
                 var png = WriteFile(directory, "b.png");
                 var bmp = WriteFile(directory, "c.bmp");
+                var jpeg = WriteFile(directory, "d.jpeg");
                 WriteFile(directory, "d.gif");
                 WriteFile(directory, "e.txt");
                 var sub = Path.Combine(directory, "sub");
@@ -25,7 +26,7 @@ namespace ImageViewer.Tests.Services
 
                 var result = ViewerImageDirectoryScanner.Scan(jpg);
 
-                Assert.Equal(new[] { jpg, png, bmp }, result);
+                Assert.Equal(new[] { jpg, png, bmp, jpeg }, result);
                 Assert.DoesNotContain(result, path => String.Equals(Path.GetFileName(path), "f.jpg", StringComparison.OrdinalIgnoreCase));
             }
             finally

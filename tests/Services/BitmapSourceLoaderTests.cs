@@ -49,6 +49,9 @@ namespace ImageViewer.Tests.Services
         [Theory]
         [InlineData(".png")]
         [InlineData(".jpg")]
+        [InlineData(".jpe")]
+        [InlineData(".jpeg")]
+        [InlineData(".jfif")]
         [InlineData(".bmp")]
         public void ReadDimensions_returns_the_real_size_for_supported_formats(string extension)
         {
@@ -59,6 +62,26 @@ namespace ImageViewer.Tests.Services
 
                 Assert.Equal(100, size.Width);
                 Assert.Equal(50, size.Height);
+            }
+            finally
+            {
+                DeleteQuietly(path);
+            }
+        }
+
+        [Theory]
+        [InlineData(".jpe")]
+        [InlineData(".jpeg")]
+        [InlineData(".jfif")]
+        public void LoadForDisplay_decodes_jpeg_family_content(string extension)
+        {
+            var path = WriteTempImage(extension, 100, 50);
+            try
+            {
+                var bitmap = Assert.IsAssignableFrom<BitmapSource>(BitmapSourceLoader.LoadForDisplay(path, 100, 50));
+
+                Assert.Equal(100, bitmap.PixelWidth);
+                Assert.Equal(50, bitmap.PixelHeight);
             }
             finally
             {
@@ -172,7 +195,8 @@ namespace ImageViewer.Tests.Services
             var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + extension);
             using (var bitmap = new Bitmap(width, height))
             {
-                bitmap.Save(path, extension == ".jpg" ? ImageFormat.Jpeg : ImageFormat.Bmp);
+                var isJpeg = extension == ".jpg" || extension == ".jpe" || extension == ".jpeg" || extension == ".jfif";
+                bitmap.Save(path, isJpeg ? ImageFormat.Jpeg : ImageFormat.Bmp);
             }
             return path;
         }

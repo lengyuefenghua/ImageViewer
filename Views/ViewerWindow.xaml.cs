@@ -282,7 +282,7 @@ namespace ImageViewer.Views
             var dialog = new OpenFileDialog
             {
                 Title = "打开图片",
-                Filter = "图片 (*.jpg;*.png;*.bmp)|*.jpg;*.png;*.bmp|所有文件 (*.*)|*.*",
+                Filter = "图片 (*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.bmp)|*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.bmp|所有文件 (*.*)|*.*",
                 CheckFileExists = true
             };
             if (dialog.ShowDialog() == true && !String.IsNullOrWhiteSpace(dialog.FileName))

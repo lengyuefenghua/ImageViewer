@@ -75,10 +75,10 @@ namespace ImageViewer.Services
                 // 注册成功后清除旧的用户默认选择：UserChoice 受哈希保护不能直接写，
                 // 清掉旧记录后系统会在下次打开时重新询问，用户再于设置里选定本程序。
                 var reset = userAssociations.ResetStaleUserChoices(exe);
-                var message = "已注册为图片打开候选，请在系统默认应用设置中把 jpg/png/bmp 选为 ImageViewer。";
+                var message = "已注册为图片打开候选，请在系统默认应用设置中把 jpg/jpeg/png/bmp 选为 ImageViewer。";
                 if (reset.Cleared > 0)
                 {
-                    message = "已注册为图片打开候选，并重置 " + reset.Cleared + " 项旧默认选择（下次打开图片会重新询问）；请在系统默认应用设置中把 jpg/png/bmp 选为 ImageViewer。";
+                    message = "已注册为图片打开候选，并重置 " + reset.Cleared + " 项旧默认选择（下次打开图片会重新询问）；请在系统默认应用设置中把 jpg/jpeg/png/bmp 选为 ImageViewer。";
                 }
                 if (reset.Failed > 0)
                 {

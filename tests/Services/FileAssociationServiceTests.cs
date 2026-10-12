@@ -54,11 +54,14 @@ namespace ImageViewer.Tests.Services
             {
                 Assert.NotNull(types);
                 Assert.NotNull(types.GetValue(".jpg"));
+                Assert.NotNull(types.GetValue(".jpe"));
+                Assert.NotNull(types.GetValue(".jpeg"));
+                Assert.NotNull(types.GetValue(".jfif"));
                 Assert.NotNull(types.GetValue(".png"));
                 Assert.NotNull(types.GetValue(".bmp"));
             }
 
-            foreach (var extension in new[] { ".jpg", ".png", ".bmp" })
+            foreach (var extension in new[] { ".jpg", ".jpe", ".jpeg", ".jfif", ".png", ".bmp" })
             {
                 using (var openWith = Registry.CurrentUser.OpenSubKey(classesRoot + "\\" + extension + @"\OpenWithProgids"))
                 {
@@ -97,6 +100,9 @@ namespace ImageViewer.Tests.Services
             {
                 Assert.NotNull(fileAssociations);
                 Assert.Equal(FileAssociationService.ProgId, fileAssociations.GetValue(".jpg"));
+                Assert.Equal(FileAssociationService.ProgId, fileAssociations.GetValue(".jpe"));
+                Assert.Equal(FileAssociationService.ProgId, fileAssociations.GetValue(".jpeg"));
+                Assert.Equal(FileAssociationService.ProgId, fileAssociations.GetValue(".jfif"));
                 Assert.Equal(FileAssociationService.ProgId, fileAssociations.GetValue(".png"));
                 Assert.Equal(FileAssociationService.ProgId, fileAssociations.GetValue(".bmp"));
             }

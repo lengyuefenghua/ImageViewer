@@ -8,7 +8,7 @@ using Microsoft.Win32;
 
 namespace ImageViewer.Services
 {
-    // 图片文件关联：注册为 jpg/png/bmp 的打开候选（Applications + OpenWithProgids + RegisteredApplications），
+    // 图片文件关联：注册为 jpg/jpeg/png/bmp 的打开候选（Applications + OpenWithProgids + RegisteredApplications），
     // 并清理历史版本遗留的系统默认动词劫持；不写 UserChoice（Windows 哈希保护项），
     // 因此不会自动成为默认——仍需用户在系统设置里手动选择一次才真正成为默认。
     public sealed class FileAssociationService
@@ -18,12 +18,12 @@ namespace ImageViewer.Services
         public const string FriendlyAppName = "ImageViewer";
         public const string OpenVerbName = "ImageViewerOpen";
         public const string CapabilitiesKeyName = "ImageViewer";
-        private const string ApplicationDescription = "快速查看 jpg/png/bmp 图片";
+        private const string ApplicationDescription = "快速查看 jpg/jpeg/png/bmp 图片";
         private const string ImageTypeDescription = "ImageViewer 图片";
         private const string DefaultFileExtsRootPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts";
         private const int ShcneAssocChanged = 0x08000000;
         private const uint ShcnfIdList = 0x0000;
-        private static readonly string[] extensions = { ".jpg", ".png", ".bmp" };
+        private static readonly string[] extensions = { ".jpg", ".jpe", ".jpeg", ".jfif", ".png", ".bmp" };
         private readonly RegistryKey root;
         private readonly string softwareRootPath;
         private readonly string classesRootPath;
@@ -209,7 +209,7 @@ namespace ImageViewer.Services
             return command.IndexOf("\"" + executablePath + "\"", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        // 只读检查当前用户是否已把本程序设为 jpg/png/bmp 的默认（UserChoice 有哈希保护，程序只能读不能写）。
+        // 只读检查当前用户是否已把本程序设为 jpg/jpeg/png/bmp 的默认（UserChoice 有哈希保护，程序只能读不能写）。
         // 用户经「打开方式」选定时系统写入的 ProgId 可能是 Applications\<exe> 形式，两种都算命中。
         public bool IsDefaultViewer(string executablePath = null)
         {

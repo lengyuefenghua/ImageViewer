@@ -2,6 +2,6 @@
   "level": "patch",
   "phase": "finishing",
   "planned": true,
-  "reviewed": false,
-  "archived": false
+  "reviewed": true,
+  "archived": true
 }

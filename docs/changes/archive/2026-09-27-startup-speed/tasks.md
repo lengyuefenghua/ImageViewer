@@ -23,4 +23,4 @@
 
 ## 5. Commit
 
-- [ ] 5.1 用户确认完成收尾后提交本变更：`git add -- Services/ViewerImageDirectoryScanner.cs Views/ImageViewerViewModel.cs Views/ViewerWindow.xaml.cs tools/test-startup.ps1 docs/changes/startup-speed .opencode/lazy/state.json && git commit -m "perf(startup): 优化单图启动加载顺序"`（只 commit 不 push；不包含原有未跟踪的 `package.json`/`package-lock.json`）。
+- [x] 5.1 用户确认完成收尾后提交本变更：`git add -- Services/ViewerImageDirectoryScanner.cs Views/ImageViewerViewModel.cs Views/ViewerWindow.xaml.cs tools/test-startup.ps1 docs/changes/startup-speed .opencode/lazy/state.json && git commit -m "perf(startup): 优化单图启动加载顺序"`（只 commit 不 push；不包含原有未跟踪的 `package.json`/`package-lock.json`）。

@@ -1,9 +1,9 @@
 {
   "level": "patch",
-  "phase": "finishing",
+  "phase": "archived",
   "planned": true,
   "reviewed": true,
-  "archived": false,
+  "archived": true,
   "visualVerify": false,
   "visualReport": false,
   "designDemo": false

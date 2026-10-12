@@ -8,8 +8,8 @@ using Microsoft.Win32;
 
 namespace ImageViewer.Services
 {
-    // 图片文件关联：注册为 jpg/png/bmp 的打开候选，并把系统 ProgID 的默认动词指向本程序，
-    // 使其出现在「打开方式 / 默认应用」候选列表；但不写 UserChoice（Windows 哈希保护项），
+    // 图片文件关联：注册为 jpg/png/bmp 的打开候选（Applications + OpenWithProgids + RegisteredApplications），
+    // 并清理历史版本遗留的系统默认动词劫持；不写 UserChoice（Windows 哈希保护项），
     // 因此不会自动成为默认——仍需用户在系统设置里手动选择一次才真正成为默认。
     public sealed class FileAssociationService
     {
@@ -96,36 +96,11 @@ namespace ImageViewer.Services
                         openWith.SetValue(ProgId, new byte[0], RegistryValueKind.None);
                     }
                 }
-                // 让本程序出现在「打开方式 / 默认应用」候选列表：在扩展名的系统 ProgID 下加自己的动词，
-                // 并把 shell 默认动词指向它（MassiGra 同款；只影响候选列表，不写 UserChoice，故不会自动成为默认）。
+                // 历史版本曾把系统 ProgID 的默认动词指向本程序；注册时幂等清理，避免残留继续影响双击行为。
                 foreach (var extension in extensions)
                 {
                     var systemProgId = ReadExtensionProgId(extension);
-                    if (String.IsNullOrWhiteSpace(systemProgId)) continue;
-                    using (var verbCommand = root.CreateSubKey(classesRootPath + "\\" + systemProgId + @"\shell\" + OpenVerbName + @"\command"))
-                    {
-                        verbCommand.SetValue(null, command);
-                    }
-                    using (var verb = root.CreateSubKey(classesRootPath + "\\" + systemProgId + @"\shell\" + OpenVerbName))
-                    {
-                        verb.SetValue(null, "用 ImageViewer 打开(&V)");
-                    }
-                    // 备份原默认动词（幂等，仅在未备份时记录），供取消注册时还原。
-                    using (var shellKey = root.OpenSubKey(classesRootPath + "\\" + systemProgId + @"\shell"))
-                    {
-                        var originalVerb = shellKey == null ? null : shellKey.GetValue(null) as string;
-                        using (var backupKey = root.CreateSubKey(backupPath))
-                        {
-                            if (backupKey.GetValue(systemProgId) == null)
-                            {
-                                backupKey.SetValue(systemProgId, originalVerb ?? String.Empty);
-                            }
-                        }
-                    }
-                    using (var shellKey = root.CreateSubKey(classesRootPath + "\\" + systemProgId + @"\shell"))
-                    {
-                        shellKey.SetValue(null, OpenVerbName);
-                    }
+                    if (!String.IsNullOrWhiteSpace(systemProgId)) RestoreHijackedDefaultVerb(systemProgId);
                 }
                 // RegisteredApplications + Capabilities：让应用出现在「默认应用」列表并可一键设为默认。
                 using (var registered = root.CreateSubKey(registeredApplicationsPath))
@@ -169,26 +144,7 @@ namespace ImageViewer.Services
                 foreach (var extension in extensions)
                 {
                     var systemProgId = ReadExtensionProgId(extension);
-                    if (String.IsNullOrWhiteSpace(systemProgId)) continue;
-                    // 仅当默认动词仍指向本程序时才回退：优先还原备份，但备份动词若指向已不存在的程序
-                    // （如第三方遗留）则清除默认值，避免双击弹出指向死程序的「打开方式」。
-                    using (var shellKey = root.OpenSubKey(classesRootPath + "\\" + systemProgId + @"\shell", true))
-                    {
-                        if (shellKey != null && String.Equals(shellKey.GetValue(null) as string, OpenVerbName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var originalVerb = ReadBackedUpVerb(systemProgId);
-                            if (!String.IsNullOrEmpty(originalVerb) && VerbTargetsExistingProgram(systemProgId, originalVerb))
-                            {
-                                shellKey.SetValue(null, originalVerb);
-                            }
-                            else
-                            {
-                                shellKey.DeleteValue(null, false);
-                            }
-                            Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "取消注册回退默认动词：" + systemProgId + " -> " + (originalVerb ?? "<清除>"), null);
-                        }
-                    }
-                    root.DeleteSubKeyTree(classesRootPath + "\\" + systemProgId + @"\shell\" + OpenVerbName, false);
+                    if (!String.IsNullOrWhiteSpace(systemProgId)) RestoreHijackedDefaultVerb(systemProgId);
                 }
                 root.DeleteSubKeyTree(classesRootPath + "\\" + ProgId, false);
                 root.DeleteSubKeyTree(classesRootPath + @"\Applications\" + Path.GetFileName(executablePath), false);
@@ -254,17 +210,35 @@ namespace ImageViewer.Services
         }
 
         // 只读检查当前用户是否已把本程序设为 jpg/png/bmp 的默认（UserChoice 有哈希保护，程序只能读不能写）。
-        public bool IsDefaultViewer()
+        // 用户经「打开方式」选定时系统写入的 ProgId 可能是 Applications\<exe> 形式，两种都算命中。
+        public bool IsDefaultViewer(string executablePath = null)
         {
+            if (String.IsNullOrWhiteSpace(executablePath))
+            {
+                executablePath = Process.GetCurrentProcess().MainModule.FileName;
+            }
+            var applicationProgId = ApplicationProgId(executablePath);
             foreach (var extension in extensions)
             {
                 using (var userChoice = Registry.CurrentUser.OpenSubKey(fileExtsRootPath + "\\" + extension + @"\UserChoice"))
                 {
                     var progId = userChoice == null ? null : userChoice.GetValue("ProgId") as string;
-                    if (String.Equals(progId, ProgId, StringComparison.OrdinalIgnoreCase)) return true;
+                    if (IsOurProgId(progId, applicationProgId)) return true;
                 }
             }
             return false;
+        }
+
+        // 用户经「打开方式」选定本程序时，Windows 写入 UserChoice 的 ProgId 可能是 Applications\<exe 文件名>。
+        private static string ApplicationProgId(string executablePath)
+        {
+            return @"Applications\" + Path.GetFileName(executablePath);
+        }
+
+        private static bool IsOurProgId(string progId, string applicationProgId)
+        {
+            return String.Equals(progId, ProgId, StringComparison.OrdinalIgnoreCase)
+                || String.Equals(progId, applicationProgId, StringComparison.OrdinalIgnoreCase);
         }
 
         // 扩展名的系统 ProgID（如 .jpg -> jpegfile）由系统或用户设置，动态读取避免写死。
@@ -315,6 +289,30 @@ namespace ImageViewer.Services
             return File.Exists(executable);
         }
 
+        // 历史版本写入的劫持：系统 ProgID 的默认动词指向本程序。默认动词仍指向本程序时还原备份，
+        // 备份失效或不存在则清除默认值；无论默认是否指向本程序，都删除本程序自己的动词键。
+        private void RestoreHijackedDefaultVerb(string systemProgId)
+        {
+            using (var shellKey = root.OpenSubKey(classesRootPath + "\\" + systemProgId + @"\shell", true))
+            {
+                if (shellKey != null
+                    && String.Equals(shellKey.GetValue(null) as string, OpenVerbName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var originalVerb = ReadBackedUpVerb(systemProgId);
+                    if (!String.IsNullOrEmpty(originalVerb) && VerbTargetsExistingProgram(systemProgId, originalVerb))
+                    {
+                        shellKey.SetValue(null, originalVerb);
+                    }
+                    else
+                    {
+                        shellKey.DeleteValue(null, false);
+                    }
+                    Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "已修复历史版本的系统默认动词残留：" + systemProgId, null);
+                }
+            }
+            root.DeleteSubKeyTree(classesRootPath + "\\" + systemProgId + @"\shell\" + OpenVerbName, false);
+        }
+
         // 用户级候选：Windows 10 的「打开方式/默认应用」弹窗读取 FileExts\<ext>\OpenWithProgids，
         // 必须在当前用户上下文写入（提权进程的 HKCU 是管理员账户）。
         public void RegisterUserCandidates(string executablePath)
@@ -363,6 +361,51 @@ namespace ImageViewer.Services
             }
         }
 
+        // 清除用户对图片扩展名的旧默认选择（含系统保护的 UserChoice），让下次打开重新询问。
+        // 用户已选定本程序时保留；单项失败不阻断其余项。
+        public UserChoiceResetResult ResetStaleUserChoices(string executablePath)
+        {
+            if (String.IsNullOrWhiteSpace(executablePath)) throw new ArgumentException("可执行文件路径不能为空。", "executablePath");
+
+            var applicationProgId = ApplicationProgId(executablePath);
+            var cleared = 0;
+            var failed = 0;
+            foreach (var extension in extensions)
+            {
+                try
+                {
+                    using (var key = root.OpenSubKey(fileExtsRootPath + "\\" + extension, true))
+                    {
+                        if (key == null) continue;
+                        // Application/Progid 是旧式覆盖值，留着会让系统继续沿用先前的打开方式。
+                        key.DeleteValue("Application", false);
+                        key.DeleteValue("Progid", false);
+                        var current = ReadUserChoiceProgId(key);
+                        if (current == null || IsOurProgId(current, applicationProgId)) continue;
+                        key.DeleteSubKeyTree("UserChoice", false);
+                        cleared++;
+                    }
+                }
+                catch (Exception error)
+                {
+                    failed++;
+                    Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "重置旧默认选择失败：" + extension, error);
+                }
+            }
+            Diagnostics.Sink.Log(failed > 0 ? LogSeverity.Warn : LogSeverity.Info, LoggerName,
+                "重置旧默认选择完成：已清除 " + cleared + " 项，失败 " + failed + " 项", null);
+            return new UserChoiceResetResult(cleared, failed);
+        }
+
+        // UserChoice 的 ProgId（用户经「打开方式/默认应用」选定），不存在时返回 null。
+        private static string ReadUserChoiceProgId(RegistryKey extensionKey)
+        {
+            using (var userChoice = extensionKey.OpenSubKey("UserChoice"))
+            {
+                return userChoice == null ? null : userChoice.GetValue("ProgId") as string;
+            }
+        }
+
         // 官方要求：注册/取消关联后通知 shell 刷新关联缓存，否则「默认应用」等列表不更新。
         private static void NotifyShellOfAssociationChange()
         {
@@ -392,5 +435,18 @@ namespace ImageViewer.Services
                 throw;
             }
         }
+    }
+
+    // 旧默认选择重置结果：Cleared 为已清除项数，Failed 为受系统保护等原因未能清除的项数。
+    public sealed class UserChoiceResetResult
+    {
+        public UserChoiceResetResult(int cleared, int failed)
+        {
+            Cleared = cleared;
+            Failed = failed;
+        }
+
+        public int Cleared { get; private set; }
+        public int Failed { get; private set; }
     }
 }

@@ -41,7 +41,7 @@ namespace ImageViewer.Services
         public bool ShouldPromptForDefaultViewer()
         {
             if (promptDismissed) return false;
-            if (userAssociations.IsDefaultViewer()) return false;
+            if (userAssociations.IsDefaultViewer(executablePath())) return false;
             return !machineAssociations.IsRegisteredFor(executablePath());
         }
 
@@ -70,9 +70,21 @@ namespace ImageViewer.Services
                     if (exitCode != 0) return "注册失败：管理员进程返回码 " + exitCode + "。";
                 }
 
-                return machineAssociations.IsRegistered(exe)
-                    ? "已注册为图片打开候选，请在系统默认应用设置中把 jpg/png/bmp 选为 ImageViewer。"
-                    : "注册未完成。";
+                if (!machineAssociations.IsRegistered(exe)) return "注册未完成。";
+
+                // 注册成功后清除旧的用户默认选择：UserChoice 受哈希保护不能直接写，
+                // 清掉旧记录后系统会在下次打开时重新询问，用户再于设置里选定本程序。
+                var reset = userAssociations.ResetStaleUserChoices(exe);
+                var message = "已注册为图片打开候选，请在系统默认应用设置中把 jpg/png/bmp 选为 ImageViewer。";
+                if (reset.Cleared > 0)
+                {
+                    message = "已注册为图片打开候选，并重置 " + reset.Cleared + " 项旧默认选择（下次打开图片会重新询问）；请在系统默认应用设置中把 jpg/png/bmp 选为 ImageViewer。";
+                }
+                if (reset.Failed > 0)
+                {
+                    message += "另有 " + reset.Failed + " 项旧默认选择未能重置，建议在系统设置中手动确认。";
+                }
+                return message;
             }
             catch (Win32Exception error) when (error.NativeErrorCode == 1223)
             {

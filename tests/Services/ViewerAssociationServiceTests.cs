@@ -118,6 +118,46 @@ namespace ImageViewer.Tests.Services
         }
 
         [Fact]
+        public void Register_resets_stale_user_choice_after_successful_registration()
+        {
+            var machine = CreateMachine();
+            var user = CreateUser();
+            using (var userChoice = Registry.CurrentUser.CreateSubKey(testRoot + @"\FileExts\.jpg\UserChoice"))
+            {
+                userChoice.SetValue("ProgId", "Photos");
+            }
+            var service = new ViewerAssociationService(machine, user, AdminRegistrar(), () => exePath);
+
+            service.Register();
+
+            Assert.True(machine.IsRegistered(exePath));
+            Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\FileExts\.jpg\UserChoice"));
+        }
+
+        [Fact]
+        public void Register_does_not_reset_user_choice_when_elevation_is_cancelled()
+        {
+            var machine = CreateMachine();
+            var user = CreateUser();
+            using (var userChoice = Registry.CurrentUser.CreateSubKey(testRoot + @"\FileExts\.jpg\UserChoice"))
+            {
+                userChoice.SetValue("ProgId", "Photos");
+            }
+            var registrar = new FileAssociationRegistrar(
+                () => false,
+                argument => { throw new Win32Exception(1223); });
+            var service = new ViewerAssociationService(machine, user, registrar, () => exePath);
+
+            service.Register();
+
+            using (var userChoice = Registry.CurrentUser.OpenSubKey(testRoot + @"\FileExts\.jpg\UserChoice"))
+            {
+                Assert.NotNull(userChoice);
+                Assert.Equal("Photos", userChoice.GetValue("ProgId"));
+            }
+        }
+
+        [Fact]
         public void Unregister_removes_what_register_wrote()
         {
             var machine = CreateMachine();

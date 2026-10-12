@@ -142,7 +142,7 @@ namespace ImageViewer.Tests.Services
         }
 
         [Fact]
-        public void Register_points_the_system_progid_default_verb_to_ours_and_backs_up()
+        public void Register_leaves_the_system_progid_default_verb_untouched()
         {
             var service = new FileAssociationService(Registry.CurrentUser, testRoot);
             using (var jpg = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\.jpg")) jpg.SetValue(null, "jpegfile");
@@ -152,34 +152,30 @@ namespace ImageViewer.Tests.Services
 
             using (var shell = Registry.CurrentUser.OpenSubKey(testRoot + @"\Classes\jpegfile\shell"))
             {
-                Assert.Equal(FileAssociationService.OpenVerbName, shell.GetValue(null));
+                Assert.Equal("open", shell.GetValue(null));
             }
-            using (var verb = Registry.CurrentUser.OpenSubKey(testRoot + @"\Classes\jpegfile\shell\" + FileAssociationService.OpenVerbName + @"\command"))
-            {
-                Assert.NotNull(verb);
-                Assert.Equal("\"" + exePath + "\" \"%1\"", verb.GetValue(null));
-            }
-            using (var backup = Registry.CurrentUser.OpenSubKey(testRoot + @"\ImageViewer\Backup"))
-            {
-                Assert.NotNull(backup);
-                Assert.Equal("open", backup.GetValue("jpegfile"));
-            }
+            Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Classes\jpegfile\shell\" + FileAssociationService.OpenVerbName));
+            Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\ImageViewer\Backup"));
         }
 
         [Fact]
-        public void Register_is_idempotent_and_keeps_the_first_backup()
+        public void Register_restores_a_legacy_hijacked_default_verb()
         {
             var service = new FileAssociationService(Registry.CurrentUser, testRoot);
+            var existing = typeof(FileAssociationServiceTests).Assembly.Location;
             using (var jpg = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\.jpg")) jpg.SetValue(null, "jpegfile");
-            using (var shell = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell")) shell.SetValue(null, "open");
+            using (var shell = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell")) shell.SetValue(null, FileAssociationService.OpenVerbName);
+            using (var hijackCommand = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell\" + FileAssociationService.OpenVerbName + @"\command")) hijackCommand.SetValue(null, "\"" + exePath + "\" \"%1\"");
+            using (var backup = Registry.CurrentUser.CreateSubKey(testRoot + @"\ImageViewer\Backup")) backup.SetValue("jpegfile", "open");
+            using (var openCommand = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell\open\command")) openCommand.SetValue(null, "\"" + existing + "\" \"%1\"");
 
             service.Register(exePath);
-            service.Register(exePath);
 
-            using (var backup = Registry.CurrentUser.OpenSubKey(testRoot + @"\ImageViewer\Backup"))
+            using (var shell = Registry.CurrentUser.OpenSubKey(testRoot + @"\Classes\jpegfile\shell"))
             {
-                Assert.Equal("open", backup.GetValue("jpegfile"));
+                Assert.Equal("open", shell.GetValue(null));
             }
+            Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Classes\jpegfile\shell\" + FileAssociationService.OpenVerbName));
         }
 
         [Fact]
@@ -188,10 +184,11 @@ namespace ImageViewer.Tests.Services
             var service = new FileAssociationService(Registry.CurrentUser, testRoot);
             var existing = typeof(FileAssociationServiceTests).Assembly.Location;
             using (var jpg = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\.jpg")) jpg.SetValue(null, "jpegfile");
-            using (var shell = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell")) shell.SetValue(null, "open");
+            using (var shell = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell")) shell.SetValue(null, FileAssociationService.OpenVerbName);
+            using (var hijackCommand = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell\" + FileAssociationService.OpenVerbName + @"\command")) hijackCommand.SetValue(null, "\"" + exePath + "\" \"%1\"");
+            using (var backup = Registry.CurrentUser.CreateSubKey(testRoot + @"\ImageViewer\Backup")) backup.SetValue("jpegfile", "open");
             using (var openCommand = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell\open\command")) openCommand.SetValue(null, "\"" + existing + "\" \"%1\"");
 
-            service.Register(exePath);
             service.Unregister(exePath);
 
             using (var shell = Registry.CurrentUser.OpenSubKey(testRoot + @"\Classes\jpegfile\shell"))
@@ -207,10 +204,11 @@ namespace ImageViewer.Tests.Services
         {
             var service = new FileAssociationService(Registry.CurrentUser, testRoot);
             using (var jpg = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\.jpg")) jpg.SetValue(null, "jpegfile");
-            using (var shell = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell")) shell.SetValue(null, "ImageDataViewerOpen");
+            using (var shell = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell")) shell.SetValue(null, FileAssociationService.OpenVerbName);
+            using (var hijackCommand = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell\" + FileAssociationService.OpenVerbName + @"\command")) hijackCommand.SetValue(null, "\"" + exePath + "\" \"%1\"");
+            using (var backup = Registry.CurrentUser.CreateSubKey(testRoot + @"\ImageViewer\Backup")) backup.SetValue("jpegfile", "ImageDataViewerOpen");
             using (var staleCommand = Registry.CurrentUser.CreateSubKey(testRoot + @"\Classes\jpegfile\shell\ImageDataViewerOpen\command")) staleCommand.SetValue(null, "\"C:\\nonexistent-dir\\ImageDataViewer.App.exe\" \"%1\"");
 
-            service.Register(exePath);
             service.Unregister(exePath);
 
             using (var shell = Registry.CurrentUser.OpenSubKey(testRoot + @"\Classes\jpegfile\shell"))
@@ -337,6 +335,53 @@ namespace ImageViewer.Tests.Services
                     }
                 }
             }
+        }
+
+        [Fact]
+        public void ResetStaleUserChoices_removes_legacy_values_and_foreign_user_choice()
+        {
+            var service = new FileAssociationService(Registry.CurrentUser, testRoot, testRoot + @"\FileExts");
+            using (var extension = Registry.CurrentUser.CreateSubKey(testRoot + @"\FileExts\.jpg"))
+            {
+                extension.SetValue("Application", "OldViewer.exe");
+                extension.SetValue("Progid", "OldViewer.Image");
+            }
+            using (var userChoice = Registry.CurrentUser.CreateSubKey(testRoot + @"\FileExts\.jpg\UserChoice"))
+            {
+                userChoice.SetValue("ProgId", "Photos");
+            }
+
+            var result = service.ResetStaleUserChoices(exePath);
+
+            using (var extension = Registry.CurrentUser.OpenSubKey(testRoot + @"\FileExts\.jpg"))
+            {
+                Assert.Null(extension.GetValue("Application"));
+                Assert.Null(extension.GetValue("Progid"));
+                Assert.Null(extension.OpenSubKey("UserChoice"));
+            }
+            Assert.Equal(1, result.Cleared);
+            Assert.Equal(0, result.Failed);
+        }
+
+        [Theory]
+        [InlineData(FileAssociationService.ProgId)]
+        [InlineData(@"Applications\ImageViewer.exe")]
+        public void ResetStaleUserChoices_keeps_our_own_user_choice(string progId)
+        {
+            var service = new FileAssociationService(Registry.CurrentUser, testRoot, testRoot + @"\FileExts");
+            using (var userChoice = Registry.CurrentUser.CreateSubKey(testRoot + @"\FileExts\.jpg\UserChoice"))
+            {
+                userChoice.SetValue("ProgId", progId);
+            }
+
+            var result = service.ResetStaleUserChoices(exePath);
+
+            using (var userChoice = Registry.CurrentUser.OpenSubKey(testRoot + @"\FileExts\.jpg\UserChoice"))
+            {
+                Assert.NotNull(userChoice);
+                Assert.Equal(progId, userChoice.GetValue("ProgId"));
+            }
+            Assert.Equal(0, result.Cleared);
         }
     }
 }

@@ -113,7 +113,7 @@ namespace ImageViewer
                 var dialog = new Wpf.Ui.Controls.MessageBox
                 {
                     Title = "设为默认图片查看器",
-                    Content = "将 ImageViewer 设为默认图片查看器？Windows 不允许程序自动设为默认，需在随后打开的系统设置里确认。",
+                    Content = "将 ImageViewer 设为默认图片查看器？会先注册为打开候选，并清除旧的图片默认应用选择（下次打开 jpg/png/bmp 会重新询问）；Windows 不允许程序自动设为默认，需在随后打开的系统设置里确认。",
                     PrimaryButtonText = "设为默认",
                     SecondaryButtonText = "以后再说"
                 };

@@ -1,0 +1,10 @@
+{
+  "level": "patch",
+  "phase": "finishing",
+  "planned": true,
+  "reviewed": true,
+  "archived": false,
+  "visualVerify": false,
+  "visualReport": false,
+  "designDemo": false
+}

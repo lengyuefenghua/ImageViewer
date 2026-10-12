@@ -40,12 +40,16 @@
     <Resource Include="ImageViewer.ico" />
   </ItemGroup>
 
-  <!-- 项目位于仓库根后，SDK 默认 glob 会递归吸入 tests\**，必须显式排除。 -->
+  <!-- 项目位于仓库根后，SDK 默认 glob 会递归吸入 tests\** 与 tools\**，必须显式排除。 -->
   <ItemGroup>
     <Compile Remove="tests\**" />
     <Page Remove="tests\**" />
     <ApplicationDefinition Remove="tests\**" />
     <None Remove="tests\**" />
+    <Compile Remove="tools\**" />
+    <Page Remove="tools\**" />
+    <ApplicationDefinition Remove="tools\**" />
+    <None Remove="tools\**" />
   </ItemGroup>
 
   <ItemGroup>

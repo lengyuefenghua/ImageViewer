@@ -77,6 +77,16 @@ Get-ChildItem -LiteralPath $ReleaseOutput | Where-Object { $excluded -notcontain
     Copy-Item -LiteralPath $_.FullName -Destination $PublishDirectory -Recurse -Force
 }
 
+# 4b. 裁掉 Wpf.Ui.dll 内未使用的两个 Fluent 图标字体（约占发布体积 4.8MB）；只改暂存副本，
+#     不动 build\Release，详见 docs/changes/trim-wpfui-icon-fonts。
+$WpfUi = Join-Path $PublishDirectory 'Wpf.Ui.dll'
+if (Test-Path -LiteralPath $WpfUi) {
+    $Stripper = Join-Path $Root 'tools\WpfUiFontStripper\WpfUiFontStripper.csproj'
+    Write-Output '[release] Trimming unused icon fonts from Wpf.Ui.dll'
+    dotnet run --project $Stripper -c Release -- $WpfUi
+    if ($LASTEXITCODE -ne 0) { throw ("[release] Font trimming failed with exit code {0}." -f $LASTEXITCODE) }
+}
+
 # 5. 打包 <项目名>-<版本号>-win-x64.zip
 if (-not (Test-Path -LiteralPath $OutputDirectory)) { New-Item -ItemType Directory -Path $OutputDirectory | Out-Null }
 $archive = Join-Path $OutputDirectory ("{0}-{1}-win-x64.zip" -f $ProjectName, $version)

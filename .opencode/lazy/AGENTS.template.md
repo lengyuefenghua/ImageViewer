@@ -18,6 +18,7 @@
 
 ## Workflow
 - 任何开发请求先通过 skill 工具加载 `using-lazy-flow` 分级并按其路由；技能已注册，不需要文件搜索。
+- **行为基线**：动手前先明示假设、有歧义先问、有更简单方案就反驳；只写解决问题的最小代码；只改必须改的（不动相邻代码/格式，无关死代码只提不删，清理自己的孤儿）；把任务转成可验证标准、凭新鲜证据循环到通过。细节分别以 `lean-check`、`execute-change`/`review-change`、`tdd-cycle` 为准。
 - 分级：`tiny` 最小修改（文案/样式/小修复/局部优化，不改契约；重要代码必须聚焦验证；不审查；三行记录到 `docs/changes/tiny-log.md`）；`patch` 单功能/子系统行为变更 + 轻量审查；`full` 仅限共享契约/架构级重组/数据迁移/高不确定性 + 双轴审查。
 - full 澄清先统一术语（`CONTEXT.md`），需求确认结论落盘 `proposal.md` 的需求确认段，再进入设计。
 - 各纪律的判定以对应技能为唯一出处（测试 → `tdd-cycle`，视觉 → `ui-visual-verify`，收尾/状态 → `finish-change`、`using-lazy-flow`），本文件只留摘要。

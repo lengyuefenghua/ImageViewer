@@ -56,6 +56,7 @@ license: MIT
    - 关键处缺关键注释 = Important。
    - 日志泄露敏感数据、循环刷屏、无信息占位，或引入多余的日志依赖 = Important。
    - 冗余或叙述性注释 = Suggestion。
+9. **无关改动（Surgical）**：diff 里是否有无法追溯到本次需求的相邻改动、格式重排、顺手重构，或删除的无关死代码？= Important；自己改动产生的孤儿（未用 import/变量/函数）未清理 = Suggestion。
 
 ### 深模块判据
 

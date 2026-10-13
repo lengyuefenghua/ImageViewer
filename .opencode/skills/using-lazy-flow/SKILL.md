@@ -18,7 +18,7 @@ full 变更**不自动续跑**：不要因完成局部任务就停止。`tasks.m
 
 full/patch 变更**完成前必须由 `finish-change` 收尾门执行自审**：逐条对照 `specs/**/spec.md` 的 requirement/scenario 与 `tasks.md`，确认完整实现、无遗漏；有缺口先修复再重审。tiny 不做审查。
 
-所有级别都遵守仓库 `AGENTS.md` 的日志与注释规范（日志是行为变更的交付物；关键注释用中文）；缺失按 Important 处理，判定细节以 `review-change` 为准。
+所有级别都遵守仓库 `AGENTS.md` 的日志与注释规范，以及行为基线（动手前先明示假设、有歧义先问、有更简单方案就反驳；最小实现；只改必须改的；以可验证标准推进；判定分别以 `lean-check`、`execute-change`、`review-change` 为准）。日志是行为变更的交付物；关键注释用中文；缺失按 Important 处理，判定细节以 `review-change` 为准。
 
 测试纪律（所有级别）：**测试默认不写**，只有命中 `tdd-cycle` 漏测后果闸（不写会导致可复现的崩溃/泄漏/资源异常/数据损坏/系统破坏）的行为才写并走 RED-GREEN；不做文字断言。不写是正常结果，一句话写明 `无测试：<原因>`。判定标准以 `tdd-cycle` 为唯一出处。
 

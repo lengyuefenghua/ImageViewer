@@ -6,5 +6,5 @@ description: 根据已通过 grilling 的设计生成 tasks.md
 
 命令特有约束：
 
-- 界面变更的三开关以用户明确确认为准（未确认先问，未确认按 `false`）；结论写入 change 的 `state.json`。
+- 界面变更：必须落一份可视设计稿（`designDemo=true` 用 `design-demo.html`，否则文字 UI 草图写入 `design.md`/`tasks.md`）；三开关以用户明确确认为准（未确认先问，未确认按 `false`），结论写入 change 的 `state.json`；tiny 纯样式微调豁免。
 - 提交任务带 `[人工]` 标记：人工验收通过且用户明确许可后才执行，只 commit 不 push。

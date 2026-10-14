@@ -120,7 +120,7 @@ docs/changes/<change>/specs/<capability>/spec.md
 
 简单完整变更的 `design.md` 可以很短，但必须解释关键取舍以及为什么不需要更重的设计。
 
-界面变更时，在 `design.md` 增加 `## UI 草图` 段：用文字给出布局、区块、组件与交互要点（简单界面到文字草图即可，不必建文件）。
+界面变更时，`design.md` **必须**包含 `## UI 草图` 段：用文字给出布局、区块、组件与交互要点。界面变更**必须至少落一份可视设计稿**：简单界面用该文字草图；复杂界面若用户确认 `designDemo=true`，以 `design-demo.html` 为主设计稿，`## UI 草图` 至少保留要点与指向 demo 的说明。
 
 ## design-demo.html
 

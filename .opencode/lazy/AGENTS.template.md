@@ -22,6 +22,8 @@
 - 分级：`tiny` 最小修改（文案/样式/小修复/局部优化，不改契约；重要代码必须聚焦验证；不审查；三行记录到 `docs/changes/tiny-log.md`）；`patch` 单功能/子系统行为变更 + 轻量审查；`full` 仅限共享契约/架构级重组/数据迁移/高不确定性 + 双轴审查。
 - full 澄清先统一术语（`CONTEXT.md`），需求确认结论落盘 `proposal.md` 的需求确认段，再进入设计。
 - 各纪律的判定以对应技能为唯一出处（测试 → `tdd-cycle`，视觉 → `ui-visual-verify`，收尾/状态 → `finish-change`、`using-lazy-flow`），本文件只留摘要。
+- **界面设计必出可视设计稿**：文字 UI 草图是底线，复杂界面可升级为单文件 HTML demo；tiny 纯样式微调豁免。
+- **执行中新需求/范围变更**（含 `/apply`、build agent）：先出方案并获用户明确确认再改代码，禁止直接改；仅当用户明确声明本变更期间不再逐次确认（change 状态 `confirmWaived=true`）才可连续实施；该豁免不覆盖提交/推送门与 `lazy_computer_*` 权限门。
 - 测试默认不写：只对命中 `tdd-cycle` 漏测后果闸的行为写测试并走 RED-GREEN；不做文字断言。
 - full/patch 完成前由收尾门自审（逐条对照 specs/tasks）；full 变更不自动续跑，`tasks.md` 未完成就继续。
 - **权限门**：未经用户明确许可，不得调用 `lazy_computer_*`（视觉验证）；**人工验收通过前禁止提交**；`git commit` 与 `git push` 都必须获得用户明确许可（commit 许可不等于 push 许可）。

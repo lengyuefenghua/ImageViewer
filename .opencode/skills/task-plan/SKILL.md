@@ -80,6 +80,7 @@ license: MIT
     - `visualVerify=true` → 加视觉验证任务（格式第 5 节）；`false` → 不加，且本变更不得使用 `lazy_computer_*`。
     - `designDemo=true` → 加 demo 任务（格式第 4 节）：产出 `docs/changes/<change>/design-demo.html` 并请用户验收。
     - `visualReport=true` → 在视觉任务里加报告要求（格式 5.4）。
+    - **必出可视设计稿**：`designDemo=true` 时以 `design-demo.html`（第 4 节）为主；否则把文字 UI 草图写入 `design.md` 的 `## UI 草图`（full）或 `tasks.md` 的界面任务描述（patch）作为验收点；tiny 纯样式微调豁免。
 - 当 `visualVerify=true` 时，视觉验证任务要写清启动方式、`lazy_computer_*` 的截图调用、以及对照 spec 的判据；full 由主控独立再截一次确认（派发子代理时不能只信子代理截图）。
 - **所有行为任务**都要评估并列出日志点（事件 + 级别 + 上下文）作为验收点，用级别控制输出内容；确实不适用的写明「无日志点：<原因>」。关键注释作为验收点。
 - 任务属于文档/配置/生成物或未通过漏测后果闸、跳过测试的，在任务文本里写明「无测试：<原因>」。

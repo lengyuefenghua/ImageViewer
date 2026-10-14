@@ -22,7 +22,7 @@ full/patch 变更**完成前必须由 `finish-change` 收尾门执行自审**：
 
 测试纪律（所有级别）：**测试默认不写**，只有命中 `tdd-cycle` 漏测后果闸（不写会导致可复现的崩溃/泄漏/资源异常/数据损坏/系统破坏）的行为才写并走 RED-GREEN；不做文字断言。不写是正常结果，一句话写明 `无测试：<原因>`。判定标准以 `tdd-cycle` 为唯一出处。
 
-界面/前端/GUI 变更（页面、组件、样式、布局、响应式、窗口、对话框、自绘/画布）：在**澄清阶段**给出**文字 UI 草图**并问用户是否使用视觉测试与验证（`visualVerify`）、是否需要验收报告（`visualReport`），复杂界面再问是否产出 HTML demo（`designDemo`）。**未经用户明确许可（`visualVerify=true`）一律不得调用 `lazy_computer_*`**；`designDemo=true` 时产出单文件 `docs/changes/<change>/design-demo.html`；`visualVerify=true` 时加载 `ui-visual-verify` 做闭环实际验证。没有真实截图证据，不得声明完成、提交或归档；其余细节以 `ui-visual-verify` 为准。
+界面/前端/GUI 变更（页面、组件、样式、布局、响应式、窗口、对话框、自绘/画布）：**必须产出可视设计稿**——**文字 UI 草图是底线**，任何界面设计都不得只给文字描述而无草图（tiny 纯样式微调豁免，见下）。在**澄清阶段**给出文字 UI 草图，复杂界面（由你判断）再问是否升级为单文件 HTML demo（`designDemo`）：`true` 产出 `design-demo.html` 为主设计稿，`false` 仍须给文字草图。同时问用户是否使用视觉测试与验证（`visualVerify`）、是否需要验收报告（`visualReport`）。**未经用户明确许可（`visualVerify=true`）一律不得调用 `lazy_computer_*`**；`visualVerify=true` 时加载 `ui-visual-verify` 做闭环实际验证。没有真实截图证据，不得声明完成、提交或归档；其余细节以 `ui-visual-verify` 为准。
 
 ## 分级
 
@@ -88,12 +88,14 @@ change 状态字段以本技能为唯一出处（其他技能只引用）。chan
   "archived": false,
   "visualVerify": false,
   "visualReport": false,
-  "designDemo": false
+  "designDemo": false,
+  "confirmWaived": false
 }
 ```
 
 - patch 创建时 `planned=true`；full 由 `spec-design` 建立并同步 `grilled`；`phase` 由各阶段入口技能更新。
-- 界面三开关（`visualVerify`/`visualReport`/`designDemo`）必须来自用户明确确认：full 在澄清阶段、patch 在规划阶段（`task-plan`）；未确认前一律 `false`，且禁止调用 `lazy_computer_*`。
+- 界面三开关（`visualVerify`/`visualReport`/`designDemo`）必须来自用户明确确认：full 在澄清阶段、patch 在规划阶段（`task-plan`）；未确认前一律 `false`，且禁止调用 `lazy_computer_*`。界面变更必须至少落一份可视设计稿（`designDemo=true` 用 `design-demo.html`，否则文字 UI 草图）；tiny 纯样式微调豁免。
+- `confirmWaived=true`：仅当用户明确声明本变更期间不再逐次确认时置位；同一变更内出现新需求/范围变更可不逐次确认；**不覆盖**提交/推送门与 `lazy_computer_*` 权限门；仅在当前变更有效，归档或新变更后失效。
 - `reviewed=true`：`review-change` 给出 `Passed` 且存在 active change 时置位。
 - `archived=true`：`finish-change` 归档完成时置位，同时全局 `state.json` 回到 idle。
 - **提交/推送不是自动步骤**：人工验收通过前禁止提交；`git commit`、`git push` 都必须获得用户明确许可（commit 许可不等于 push 许可）。
@@ -106,6 +108,7 @@ full 变更的实现默认由主控 inline 完成。任务独立且可并行、�
 - `patch`：先加载 `task-plan`，再加载 `execute-change`；行为任务在实现前加载 `tdd-cycle` **判断是否值得测试（默认不写）**；完成后加载 `review-change`（轻量审查）和 `finish-change`。
 - `full`：先加载 `grill-me`（先统一核心术语写入 `CONTEXT.md`，需求确认结论落盘 `proposal.md` 的 `## 需求确认` 段），通过后加载 `spec-design`、`task-plan`、`execute-change`；行为任务加载 `tdd-cycle` **判断是否值得测试（默认不写）**；任务可并行或需隔离上下文时加载 `subagent-dev`；完成后加载 `review-change`（双轴审查）和 `finish-change` 归档；提交任务只在人工验收通过且用户明确许可后执行。
 - Bug/失败/回归：根因不明或难以复现时，在修复前先加载 `debug-fix`；小 bug 修复直接按分级路径走。
-- 界面/前端/GUI 变更：仅当用户明确许可 `visualVerify=true` 时，实现后加载 `ui-visual-verify` 做闭环实际验证（无证据不得声明完成）；未获许可不得调用 `lazy_computer_*`。
+- 界面/前端/GUI 变更：设计阶段**必须产出可视设计稿**（文字草图底线，复杂界面可选升级为 HTML demo，见上）；仅当用户明确许可 `visualVerify=true` 时，实现后加载 `ui-visual-verify` 做闭环实际验证（无证据不得声明完成）；未获许可不得调用 `lazy_computer_*`。
+- 执行中出现新需求或实现中暴露的范围变更：先给出方案并获用户明确确认再改代码，禁止直接改；仅当用户明确声明本变更期间不再逐次确认（`confirmWaived=true`）才可连续实施。
 
 不确定时，推荐最轻的一档，并用一小段话解释原因。

@@ -2,7 +2,7 @@
 description: 审查当前 change 或指定固定点以来的 diff
 ---
 
-使用 `review-change` 技能审查 `$ARGUMENTS`：full 双轴完整审查；patch 轻量审查；tiny 不审查。
+使用 `review-change` 技能审查 `$ARGUMENTS`：full 三轴完整审查（行为/契约/标准）；patch 轻量审查；tiny 不审查。
 
 命令特有约束：
 

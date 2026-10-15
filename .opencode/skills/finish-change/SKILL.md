@@ -18,7 +18,7 @@ license: MIT
 
 1. 从 `.opencode/lazy/state.json` 或 `docs/changes/*/state.json` 识别 active change。
 2. 存在多个 active change 时，让用户选择。
-3. 读 `tasks.md`、`proposal.md`、`specs/**/spec.md`、`design.md`（如有）和 change 的 `state.json`。
+3. 读 `tasks.md`、`change.md`（需求卡、协作卡、流程契约）、`specs/**/spec.md` 和 change 的 `state.json`。
 4. 统计未完成的 `- [ ]` checkbox。
 5. 同时把全局和 change 的 `state.json` phase 设为 `finishing`。
 
@@ -28,12 +28,12 @@ license: MIT
 
 1. 运行 `tasks.md` 和仓库脚本中的相关验证命令。**只跑 tasks.md 列出的最小相关命令，禁止惯性跑全量套件**；除非变更跨库到无法界定范围。
 2. 读取输出和退出状态。
-3. 执行 `review-change`：full 做双轴完整审查，patch 做轻量审查。
+3. 执行 `review-change`：full 做三轴完整审查，patch 做轻量审查。
 4. 验证失败、审查有重要发现或任务未完成时，报告真实状态并先询问，再继续；存在 active Lazy Goal 时调用 `lazy_goal_pause` 记录阻塞原因。
 5. 提交与推送门：**人工验收通过前禁止任何提交**；`git commit` 与 `git push` 都必须获得用户明确许可（许可 commit 不等于许可 push）。用户要推送/提交 PR 时：检查 git 状态和远程分支，不重复运行已通过的检查；远程有 CI 时报告 `gh pr checks` 结果，报告保持真实（pending 就是 pending）。
 6. 归档前用 `git diff` 浏览改动文件清单，确认每个改动文件的验证已被覆盖；未覆盖的说明原因或补验证。
 7. **界面变更**（仅用户明确许可 `visualVerify=true` 时）：必须有改动后的真实截图（`lazy_computer_screenshot`）并观察过，对照 `specs/**/spec.md` 的视觉要求；缺失或未观察不得归档、提交或声明完成。无法启动界面时暂停并报告，不要假装完成；未获许可时不得调用 `lazy_computer_*`，也不要求截图。
-8. **自审**（full/patch，收尾门唯一执行点；tiny 不适用）：完成前必须逐条对照 `specs/**/spec.md` 的 requirement/scenario 与 `tasks.md`，确认完整实现、无遗漏；有缺口先修复。复杂 diff 可派只读子代理辅助，但不强制。
+8. **自审**（full/patch，收尾门唯一执行点；tiny 不适用）：完成前必须逐条对照需求卡验收标准、协作卡节点、流程契约（含异常线）与 `specs/**/spec.md`、`tasks.md`，确认完整实现、无遗漏；有缺口先修复。复杂 diff 可派只读子代理辅助，但不强制。
 9. 存在未完成的 `[人工]` 任务时：停下等用户确认，不自行归档或提交。
 
 ## 同步决策
@@ -79,7 +79,7 @@ license: MIT
 # <capability> Specification
 
 ## Purpose
-<基于 proposal 的一句话>
+<基于需求卡的一句话>
 
 ## Requirements
 ```

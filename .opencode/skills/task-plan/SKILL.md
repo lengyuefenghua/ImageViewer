@@ -6,13 +6,13 @@ license: MIT
 
 # 任务规划
 
-根据 active change 创建 `docs/changes/<change>/tasks.md`。full 使用 proposal/spec/design；patch 使用已确认的需求和变更状态。
+根据 active change 创建 `docs/changes/<change>/tasks.md`。full 使用 `change.md`（需求卡、协作卡、流程契约）与 spec；patch 使用已确认的需求和变更状态。
 
 ## 入口检查
 
 1. 从 `.opencode/lazy/state.json` 识别 active change，有歧义就问。
-2. full：读 `proposal.md`、`specs/**/spec.md`，以及 `design.md`（如有）；patch：读 `tasks.md`（如已存在）和用户已确认的变更范围。
-3. full：确认 `state.json` 的 `grilled = true`；patch 不需要 grilling。
+2. full：读 `change.md`（需求卡、协作卡、流程契约）与 `specs/**/spec.md`；patch：读 `tasks.md`（如已存在）和用户已确认的变更范围。
+3. full：确认 `state.json` 的 `grilled = true`，并确认协作卡与流程契约已经用户确认（停点 2；未见确认记录先呈现卡并等待）；patch 不需要 grilling。
 4. 检查仓库脚本/配置，找到确切的验证命令。
 
 ## 禁止占位符
@@ -26,6 +26,8 @@ license: MIT
 ```markdown
 # Tasks
 
+> 设计基线：见 `change.md` 的协作卡与流程契约。
+
 ## 1. Tests（仅命中 `tdd-cycle` 漏测后果闸时；否则整节省略，并在对应实现任务写 `无测试：<原因>`）
 
 - [ ] 1.1 在 `exact/path` 添加失败测试，后果：<维度>（触发：<场景>）
@@ -38,7 +40,7 @@ license: MIT
 
 ## 3. Review
 
-- [ ] 3.1 加载 `review-change` 审查本变更 diff（full：Spec 轴 + Standards 轴；patch：轻量审查），修复 Critical/Important
+- [ ] 3.1 加载 `review-change` 审查本变更 diff（full：三轴——行为/契约/标准；patch：轻量审查），修复 Critical/Important
 - [ ] 3.2 运行最终验证：`exact command`
 
 ## 4. UI design demo (仅 designDemo=true)
@@ -54,7 +56,7 @@ license: MIT
 
 ## 6. Self-review (完成前，full/patch)
 
-- [ ] 6.1 自审：逐条对照 `specs/**/spec.md` 的 requirement/scenario 与 `tasks.md`，确认完整实现、无遗漏；有缺口先修复再重审
+- [ ] 6.1 自审：逐条对照需求卡验收标准、协作卡节点、流程契约（含异常线）与 `specs/**/spec.md`、`tasks.md`，确认完整实现、无遗漏；有缺口先修复再重审
 
 ## 7. Commit (仅当仓库是 git 仓库；人工验收通过且用户明确许可后才执行)
 
@@ -66,13 +68,15 @@ license: MIT
 ## 规划规则
 
 - 每个实现任务是一个 **tracer-bullet 垂直切片**：切一条贯穿相关层（schema/API/UI/测试）的窄而完整的路径，能独立 demo 或验证，且小到塞得进一个全新上下文窗口。
+- **骨架先行**：第一个实现任务 = 落协作卡的 `[增]` 节点与共享接口，按流程契约主链打通最小通路；之后的任务才接入口、补异常线。
+- **任务与协作卡对号**：每个 `[增]`/`[改]` 节点至少一条任务，任务文本写明实现协作图上的哪个节点/边；`[有]` 节点只允许"接线调用"，不得改动（需要改 → 停下走范围变更）。
 - 任务按依赖排序；有前置依赖时在任务文本写 `（blocked by <编号>）`，按前沿推进（blockers 全部完成的先做）。
 - **宽重构**（一次机械改动波及全库、无法逐片保持绿色）走 expand–contract：先新增与旧并存 → 分批迁移（每批一个任务，blocked by 展开）→ 旧形式无调用方后删除（blocked by 所有迁移批）。
 - 已知时写明要创建/修改的确切文件。
 - 每个可测任务写明确切的验证命令，并写明 seam（测试打在哪个公共接口）；seams 在规划阶段与用户确认一次。
 - 测试取舍以 `tdd-cycle` 为唯一出处：只对通过漏测后果闸的行为排 Tests 任务，默认不写，不为文字断言排测试。
 - 入选测试的行为要包含 RED 和 GREEN 任务，使用同一个聚焦命令，并写明后果维度；其余写明「无测试：<原因>」。
-- 完成前必须包含一次 `review-change` 审查任务（full：Spec 轴 + Standards 轴；patch：轻量审查），修复 Critical/Important。
+- 完成前必须包含一次 `review-change` 审查任务（full：三轴——行为/契约/标准；patch：轻量审查），修复 Critical/Important。
 - full 的实现任务默认 inline；需要并行或隔离上下文的任务标明由 `subagent-dev` 派发。
 - **仅界面变更**：先判断是否涉及视觉界面（前端页面/组件、样式、布局、响应式、窗口/对话框、自绘/画布）。
   - 不涉及 → 不加任何视觉验证/demo 任务。
@@ -80,19 +84,19 @@ license: MIT
     - `visualVerify=true` → 加视觉验证任务（格式第 5 节）；`false` → 不加，且本变更不得使用 `lazy_computer_*`。
     - `designDemo=true` → 加 demo 任务（格式第 4 节）：产出 `docs/changes/<change>/design-demo.html` 并请用户验收。
     - `visualReport=true` → 在视觉任务里加报告要求（格式 5.4）。
-    - **必出可视设计稿**：`designDemo=true` 时以 `design-demo.html`（第 4 节）为主；否则把文字 UI 草图写入 `design.md` 的 `## UI 草图`（full）或 `tasks.md` 的界面任务描述（patch）作为验收点；tiny 纯样式微调豁免。
+    - **必出可视设计稿**：`designDemo=true` 时以 `design-demo.html`（第 4 节）为主；否则把文字 UI 草图写入 `change.md` 的 `## UI 草图`（full）或 `tasks.md` 的界面任务描述（patch）作为验收点；tiny 纯样式微调豁免。
 - 当 `visualVerify=true` 时，视觉验证任务要写清启动方式、`lazy_computer_*` 的截图调用、以及对照 spec 的判据；full 由主控独立再截一次确认（派发子代理时不能只信子代理截图）。
-- **所有行为任务**都要评估并列出日志点（事件 + 级别 + 上下文）作为验收点，用级别控制输出内容；确实不适用的写明「无日志点：<原因>」。关键注释作为验收点。
+- **所有行为任务**的日志点优先取自流程契约的异常线（事件 + 级别 + 上下文），缺失再按 AGENTS.md 补齐；确实不适用的写明「无日志点：<原因>」。关键注释作为验收点。
 - 任务属于文档/配置/生成物或未通过漏测后果闸、跳过测试的，在任务文本里写明「无测试：<原因>」。
 - **需要人工介入、协同、手动验收或等待用户确认的任务，任务文本必须带 `[人工]` 标记**（如 `- [ ] 3.8 [人工] 停下等待用户确认`）；执行到该任务时停下等用户，不自行推进。
-- **必须**在 `tasks.md` 末尾加自审 + 提交任务（见格式第 6、7 节）：自审逐条对照 specs/tasks；提交任务带 `[人工]` 标记——人工验收通过且用户明确许可后才执行 `git add -- <该变更相关文件> && git commit -m "<type>(<change>): <中文摘要>"`（只 commit 不 push；push 需单独许可）。
-- 除非 spec/design 要求，否则不要加大范围重构或清理任务。
+- **必须**在 `tasks.md` 末尾加自审 + 提交任务（见格式第 6、7 节）：自审逐条对照需求卡/协作卡/流程契约与 specs/tasks；提交任务带 `[人工]` 标记——人工验收通过且用户明确许可后才执行 `git add -- <该变更相关文件> && git commit -m "<type>(<change>): <中文摘要>"`（只 commit 不 push；push 需单独许可）。
+- 除非 spec/需求卡/协作卡要求，否则不要加大范围重构或清理任务。
 
 ## 收尾
 
 写完 `tasks.md` 后：
 
 - 重读并删除占位符。
-- full：确保每个 spec scenario 至少有一个任务或验证路径。
+- full：确保需求卡每条验收标准、协作卡每个 `[增]`/`[改]` 节点、spec 每个 scenario 至少有一个任务或验证路径。
 - 更新 change 的 `state.json`：`phase = "planning"`、`planned = true`；界面变更同时记录用户确认的 `visualVerify`/`visualReport`/`designDemo`（未确认按 `false`）。
 - 更新 `.opencode/lazy/state.json`：`phase = "planning"`。

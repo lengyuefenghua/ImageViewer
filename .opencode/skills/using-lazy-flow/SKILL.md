@@ -12,17 +12,24 @@ license: MIT
 
 技能已由 OpenCode 注册；不需要通过文件搜索寻找技能或 Lean 文件。
 
-存在 active Lazy Goal（`.opencode/lazy/goal-state.json` 的 `status = "active"`）时，读取其最终目标和当前进展。完成局部步骤后必须记录 `lazy_goal_progress`，由 Goal 继续推进；只有最终目标满足且有验证证据时才能调用 `lazy_goal_mark_done`。Goal 不得绕过分级、技能加载、TDD、SDD、验证、审查、归档或用户决策门。**不要自行调用 `lazy_goal_set` 为 full 变更启动 Goal；Goal 模式只由用户显式执行 `/goal` 触发。**
+存在 active Lazy Goal（`.opencode/lazy/goal-state.json` 的 `status = "active"`）时，读取其最终目标和当前进展。完成局部步骤后必须记录 `lazy_goal_progress`，由 Goal 继续推进；只有最终目标满足且有验证证据时才能调用 `lazy_goal_mark_done`。Goal 不得绕过分级、技能加载、TDD、SDD、验证、审查、归档或用户决策门（含需求卡、协作卡与流程契约的确认停点）。**不要自行调用 `lazy_goal_set` 为 full 变更启动 Goal；Goal 模式只由用户显式执行 `/goal` 触发。**
 
 full 变更**不自动续跑**：不要因完成局部任务就停止。`tasks.md` 仍有未完成 checkbox 就继续；全部完成且有新鲜验证证据才进入收尾。若收到空闲核对提示，按同一标准自查。归档不等于可以提交：**人工验收通过前禁止提交；`git commit` 与 `git push` 都必须获得用户明确许可**（许可 commit 不等于许可 push）。
 
-full/patch 变更**完成前必须由 `finish-change` 收尾门执行自审**：逐条对照 `specs/**/spec.md` 的 requirement/scenario 与 `tasks.md`，确认完整实现、无遗漏；有缺口先修复再重审。tiny 不做审查。
+full/patch 变更**完成前必须由 `finish-change` 收尾门执行自审**：逐条对照需求卡验收标准、协作卡节点、流程契约（含异常线）与 `specs/**/spec.md`、`tasks.md`，确认完整实现、无遗漏；有缺口先修复再重审。tiny 不做审查。
 
 所有级别都遵守仓库 `AGENTS.md` 的日志与注释规范，以及行为基线（动手前先明示假设、有歧义先问、有更简单方案就反驳；最小实现；只改必须改的；以可验证标准推进；判定分别以 `lean-check`、`execute-change`、`review-change` 为准）。日志是行为变更的交付物；关键注释用中文；缺失按 Important 处理，判定细节以 `review-change` 为准。
 
 测试纪律（所有级别）：**测试默认不写**，只有命中 `tdd-cycle` 漏测后果闸（不写会导致可复现的崩溃/泄漏/资源异常/数据损坏/系统破坏）的行为才写并走 RED-GREEN；不做文字断言。不写是正常结果，一句话写明 `无测试：<原因>`。判定标准以 `tdd-cycle` 为唯一出处。
 
 界面/前端/GUI 变更（页面、组件、样式、布局、响应式、窗口、对话框、自绘/画布）：**必须产出可视设计稿**——**文字 UI 草图是底线**，任何界面设计都不得只给文字描述而无草图（tiny 纯样式微调豁免，见下）。在**澄清阶段**给出文字 UI 草图，复杂界面（由你判断）再问是否升级为单文件 HTML demo（`designDemo`）：`true` 产出 `design-demo.html` 为主设计稿，`false` 仍须给文字草图。同时问用户是否使用视觉测试与验证（`visualVerify`）、是否需要验收报告（`visualReport`）。**未经用户明确许可（`visualVerify=true`）一律不得调用 `lazy_computer_*`**；`visualVerify=true` 时加载 `ui-visual-verify` 做闭环实际验证。没有真实截图证据，不得声明完成、提交或归档；其余细节以 `ui-visual-verify` 为准。
+
+## 确认面与文档预算
+
+- **确认面最小化**：任何要用户确认或决策的时刻（确认停点、审查结论、收尾选择），只呈现一屏内的关键决策（卡 + 至多 3 个取舍/问题），其余产物给路径，不倾倒全文。
+- 用户必读的只有三屏卡：需求卡（`grill-me` 产出）、协作卡与流程契约（`spec-design` 产出），各 ≤ 一屏。
+- `change.md` 全文 ≤ 3 屏 + 影响 2–3 行；`spec.md` 每条 requirement ≤ 2 句、scenario 一行；`tasks.md` 是执行清单，不追求读感。
+- 禁止复述、铺垫、推理过程、备选方案复盘（ADR 除外）；超预算先砍或拆，不扩。
 
 ## 分级
 
@@ -42,7 +49,7 @@ full/patch 变更**完成前必须由 `finish-change` 收尾门执行自审**：
 
 创建轻量 change 后进入 `planning`（字段定义见「状态」）；同时写入 `.opencode/lazy/state.json` 的 `activeChange`、`level` 和 `phase`。
 
-测试按 `tdd-cycle` 准入闸取舍（默认不写）。范围保持紧凑。除非行为不清晰、或外部可见程度高到需要契约，否则不要创建完整 proposal/spec/design。完成后走轻量审查（见 `review-change`）。
+测试按 `tdd-cycle` 准入闸取舍（默认不写）。范围保持紧凑。除非行为不清晰、或外部可见程度高到需要契约，否则不要创建完整 change/spec 产物。触碰共享接口或新增服务时，在 `tasks.md` 写一行设计基线（复用/新增 `<接口>`），轻量审查加一条结构抽查。完成后走轻量审查（见 `review-change`）。
 
 ### full
 
@@ -60,15 +67,14 @@ full/patch 变更**完成前必须由 `finish-change` 收尾门执行自审**：
 流程：
 
 ```text
-grill-me -> spec-design -> task-plan -> execute-change -> review-change -> finish-change
+grill-me --[停点1: 需求卡]--> spec-design --[停点2: 协作卡/流程契约]--> task-plan -> execute-change -> review-change -> finish-change
 ```
 
 完整产物：
 
 ```text
 docs/changes/<change>/
-├── proposal.md (含需求确认段，grill-me 落盘)
-├── design.md (仅有真实技术取舍时)
+├── change.md (变更说明：需求卡 + 协作卡 + 流程契约 + UI 草图[仅界面] + 影响)
 ├── specs/<capability>/spec.md
 ├── tasks.md
 └── state.json
@@ -96,6 +102,7 @@ change 状态字段以本技能为唯一出处（其他技能只引用）。chan
 - patch 创建时 `planned=true`；full 由 `spec-design` 建立并同步 `grilled`；`phase` 由各阶段入口技能更新。
 - 界面三开关（`visualVerify`/`visualReport`/`designDemo`）必须来自用户明确确认：full 在澄清阶段、patch 在规划阶段（`task-plan`）；未确认前一律 `false`，且禁止调用 `lazy_computer_*`。界面变更必须至少落一份可视设计稿（`designDemo=true` 用 `design-demo.html`，否则文字 UI 草图）；tiny 纯样式微调豁免。
 - `confirmWaived=true`：仅当用户明确声明本变更期间不再逐次确认时置位；同一变更内出现新需求/范围变更可不逐次确认；**不覆盖**提交/推送门与 `lazy_computer_*` 权限门；仅在当前变更有效，归档或新变更后失效。
+- **确认停点（软门）**：需求卡、协作卡与流程契约的确认不新增状态字段，以对话记录为准；未见用户确认记录时不得推进到下一阶段。
 - `reviewed=true`：`review-change` 给出 `Passed` 且存在 active change 时置位。
 - `archived=true`：`finish-change` 归档完成时置位，同时全局 `state.json` 回到 idle。
 - **提交/推送不是自动步骤**：人工验收通过前禁止提交；`git commit`、`git push` 都必须获得用户明确许可（commit 许可不等于 push 许可）。
@@ -106,7 +113,7 @@ full 变更的实现默认由主控 inline 完成。任务独立且可并行、�
 
 - `tiny`：实现、修复、优化或依赖选型时，若 Lean 模式不是 `off`，加载 `lean-check`；不创建 change、不做审查；按 tiny 的验证要求做聚焦验证，完成后追加 `docs/changes/tiny-log.md` 三行记录。
 - `patch`：先加载 `task-plan`，再加载 `execute-change`；行为任务在实现前加载 `tdd-cycle` **判断是否值得测试（默认不写）**；完成后加载 `review-change`（轻量审查）和 `finish-change`。
-- `full`：先加载 `grill-me`（先统一核心术语写入 `CONTEXT.md`，需求确认结论落盘 `proposal.md` 的 `## 需求确认` 段），通过后加载 `spec-design`、`task-plan`、`execute-change`；行为任务加载 `tdd-cycle` **判断是否值得测试（默认不写）**；任务可并行或需隔离上下文时加载 `subagent-dev`；完成后加载 `review-change`（双轴审查）和 `finish-change` 归档；提交任务只在人工验收通过且用户明确许可后执行。
+- `full`：先加载 `grill-me`（统一核心术语写入 `CONTEXT.md`，需求卡落盘 `change.md`），产出需求卡后**停下等用户确认（停点 1）**；确认后加载 `spec-design` 产出协作卡、流程契约、`specs/<capability>/spec.md` 与 `state.json`，再**停下等用户确认（停点 2）**；确认后加载 `task-plan`、`execute-change`；行为任务加载 `tdd-cycle` **判断是否值得测试（默认不写）**；任务可并行或需隔离上下文时加载 `subagent-dev`；完成后加载 `review-change`（三轴审查：行为/契约/标准）和 `finish-change` 归档；提交任务只在人工验收通过且用户明确许可后执行。
 - Bug/失败/回归：根因不明或难以复现时，在修复前先加载 `debug-fix`；小 bug 修复直接按分级路径走。
 - 界面/前端/GUI 变更：设计阶段**必须产出可视设计稿**（文字草图底线，复杂界面可选升级为 HTML demo，见上）；仅当用户明确许可 `visualVerify=true` 时，实现后加载 `ui-visual-verify` 做闭环实际验证（无证据不得声明完成）；未获许可不得调用 `lazy_computer_*`。
 - 执行中出现新需求或实现中暴露的范围变更：先给出方案并获用户明确确认再改代码，禁止直接改；仅当用户明确声明本变更期间不再逐次确认（`confirmWaived=true`）才可连续实施。

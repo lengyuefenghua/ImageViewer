@@ -3,3 +3,8 @@ lazy/state.json
 lazy/goal-state.json
 lazy/goal-run.lock
 lazy/reminder-owner.json
+
+# 工具包依赖清单（工具链已迁至全局配置，不入库）
+package.json
+package-lock.json
+bun.lock

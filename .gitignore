@@ -14,6 +14,9 @@ docs/changes/**/evidence/
 # 打包输出
 dist/
 
+# Lazy Flow 运行时状态
+.dsh/lazy/
+
 # 运行时数据与日志
 *.log
 

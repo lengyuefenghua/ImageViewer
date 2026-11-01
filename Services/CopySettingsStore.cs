@@ -5,7 +5,7 @@ using ImageViewer.Runtime;
 
 namespace ImageViewer.Services
 {
-    // 「复制到」配置：存 exe 旁 App.config 的 appSettings；目标按索引键保存，索引顺序即列表顺序。
+    // 「复制到」配置：存每用户 AppData 配置的 appSettings；目标按索引键保存，索引顺序即列表顺序。
     public static class CopySettingsStore
     {
         private const string TargetCountKey = "Copy.TargetCount";

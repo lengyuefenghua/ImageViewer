@@ -5,7 +5,7 @@ using System.IO;
 
 namespace ImageViewer.Runtime
 {
-    // 通过 .NET 内置 ConfigurationManager 读写标准 App.config 的 appSettings 段。
+    // 通过 .NET 内置 ConfigurationManager 读写用户配置文件的 appSettings 段。
     // 用映射路径而非默认 exe 配置，便于测试与显式定位；appSettings 读改写非原子，进程内用静态锁串行化。
     public static class AppSettingsFile
     {

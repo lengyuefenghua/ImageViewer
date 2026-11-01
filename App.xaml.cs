@@ -21,10 +21,12 @@ namespace ImageViewer
             // 显式关停：首启提示窗/图片选择对话框关闭时不能让 WPF 以「最后窗口关闭」自动结束进程。
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             var paths = ImageViewerPaths.ForCurrentUser();
+            AppLogging.Initialize(paths.LogsDirectory, LogSeverity.Error);
+            AppLogging.RegisterGlobalExceptionHandlers();
+            ImageViewerPaths.MigrateLegacyConfig();
             AppLogging.Initialize(
                 paths.LogsDirectory,
                 AppLogging.ResolveMinimumLevel(AppSettingsFile.GetAll(ImageViewerPaths.ConfigFilePath)));
-            AppLogging.RegisterGlobalExceptionHandlers();
 
             // 应用外观主题（在任何窗口显示前）。
             theme = AppThemeStore.Load(ImageViewerPaths.ConfigFilePath);
@@ -34,7 +36,7 @@ namespace ImageViewer
             var elevatedAction = ElevatedCommand.Parse(startupArgs);
             if (elevatedAction != ElevatedAction.None)
             {
-                Shutdown(RunElevatedAssociationCommand(elevatedAction));
+                Shutdown(RunAssociationCommand(elevatedAction));
                 return;
             }
 
@@ -51,22 +53,31 @@ namespace ImageViewer
             ContinueStartup();
         }
 
-        // runas 子进程：在当前（管理员）上下文写 HKLM，返回进程退出码。
-        private static int RunElevatedAssociationCommand(ElevatedAction action)
+        // 关联命令分支：机器级注册在管理员上下文完成；打开方式候选必须在当前登录用户上下文写入。
+        private static int RunAssociationCommand(ElevatedAction action)
         {
             try
             {
-                var machine = new FileAssociationService(Registry.LocalMachine);
                 var executablePath = Process.GetCurrentProcess().MainModule.FileName;
-                if (action == ElevatedAction.Register) machine.Register(executablePath);
-                else machine.Unregister(executablePath);
+                if (action == ElevatedAction.Register)
+                {
+                    new FileAssociationService(Registry.LocalMachine).Register(executablePath);
+                }
+                else if (action == ElevatedAction.RegisterUserCandidates)
+                {
+                    new FileAssociationService().RegisterUserCandidates(executablePath);
+                }
+                else
+                {
+                    new FileAssociationService(Registry.LocalMachine).Unregister(executablePath);
+                }
 
-                Diagnostics.Sink.Log(LogSeverity.Info, "ImageViewer", "提权文件关联操作完成：" + action, null);
+                Diagnostics.Sink.Log(LogSeverity.Info, "ImageViewer", "File association command completed: " + action, null);
                 return 0;
             }
             catch (Exception error)
             {
-                Diagnostics.Sink.Log(LogSeverity.Error, "ImageViewer", "提权文件关联操作失败：" + action, error);
+                Diagnostics.Sink.Log(LogSeverity.Error, "ImageViewer", "File association command failed: " + action, error);
                 return 1;
             }
         }

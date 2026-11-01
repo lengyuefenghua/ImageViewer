@@ -7,6 +7,7 @@ namespace ImageViewer.Services
     {
         None,
         Register,
+        RegisterUserCandidates,
         Unregister
     }
 
@@ -22,6 +23,10 @@ namespace ImageViewer.Services
                 if (String.Equals(argument, FileAssociationRegistrar.RegisterArgument, StringComparison.OrdinalIgnoreCase))
                 {
                     return ElevatedAction.Register;
+                }
+                if (String.Equals(argument, FileAssociationRegistrar.RegisterUserCandidatesArgument, StringComparison.OrdinalIgnoreCase))
+                {
+                    return ElevatedAction.RegisterUserCandidates;
                 }
                 if (String.Equals(argument, FileAssociationRegistrar.UnregisterArgument, StringComparison.OrdinalIgnoreCase))
                 {

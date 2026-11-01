@@ -19,7 +19,7 @@
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
-  <!-- 不再生成默认 .exe.config：该文件改由应用在运行期作为用户配置读写，构建不得覆盖。 -->
+  <!-- 不生成默认运行时配置；用户设置使用独立 AppData 文件，不占用 .NET exe.config。 -->
   <PropertyGroup>
     <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>

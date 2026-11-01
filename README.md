@@ -27,7 +27,7 @@
 |---|---|
 | 运行时 | .NET Framework 4.7.2（x64） |
 | UI | WPF + [WPF UI](https://github.com/lepoco/wpfui)（`Wpf.Ui` 4.2.0） |
-| 日志 | 内置文件日志（`%AppData%\ImageViewer\Logs\`，无第三方依赖） |
+| 配置与日志 | 用户配置 `%AppData%\ImageViewer\settings.config`；内置文件日志写入 `%AppData%\ImageViewer\Logs\`，无第三方依赖 |
 | 测试 | xUnit |
 
 ## 项目结构
@@ -64,14 +64,21 @@ tools\test.ps1                                    # 全量测试
 
 ## 发布打包
 
-版本号来自 git tag，构建 Release x64 并输出 `dist\ImageViewer-<version>-win-x64.zip`。
+版本号来自 git tag，构建 Release x64 并输出 ZIP 与 Inno Setup 安装器：`dist\ImageViewer-<version>-win-x64.zip`、`dist\ImageViewer-<version>-win-x64-setup.exe`。安装程序始终以管理员权限为这台电脑的所有用户安装到 `%ProgramFiles%\ImageViewer`；固定安装身份和不含版本号的目录支持后续版本原位升级。用户配置和日志分别位于 `%AppData%\ImageViewer\settings.config` 与 `%AppData%\ImageViewer\Logs\`；旧版 exe 旁 `ImageViewer.exe.config` 会在首次启动时复制迁移。安装与卸载均可静默运行：
 
 ```powershell
-tools\release.ps1 [-Tag vX.Y.Z] [-CreateTag]
+# 静默安装；需要管理员权限。
+& .\ImageViewer-<version>-win-x64-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+
+# 静默卸载：从所有用户安装项取得实际路径；需要管理员权限。
+$uninstallKey = '{E4A60292-839A-4C2B-B811-C22BBD3AA634}_is1'
+$uninstall = Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$uninstallKey"
+$uninstaller = $uninstall.UninstallString.Trim('"')
+& $uninstaller /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```
 
-推送到远程的 tag（`v*`）会触发 `.github/workflows/release.yml` 自动发布。
+安装器默认勾选“注册 ImageViewer 为图片打开方式”，安装后将 jpg/jpe/jpeg/jfif/png/bmp 注册为 ImageViewer 的打开候选并显示在系统“默认应用”列表中；Windows 10/11 不允许安装器可靠地强制修改默认应用，仍需用户在系统设置中确认默认图片查看器。卸载不会清除用户配置与 `%AppData%\ImageViewer\Logs\`。推送到远程的 tag（`v*`）会触发 `.github/workflows/release.yml` 自动发布 ZIP 与安装器。
 
 ## 数据目录
 
-用户配置（窗口大小/位置/最大化、首启偏好）写入 exe 同目录的 `ImageViewer.exe.config`；日志写入 `%AppData%\ImageViewer\Logs\`。最低日志级别可在设置窗口调整（保存为配置文件的 `Logging.MinimumLevel`）。
+用户配置（窗口大小/位置/最大化、首启偏好）写入 `%AppData%\ImageViewer\settings.config`；旧版本 exe 同目录的 `ImageViewer.exe.config` 会在首次启动时复制迁移，原文件保留。日志写入 `%AppData%\ImageViewer\Logs\`。最低日志级别可在设置窗口调整（保存为配置文件的 `Logging.MinimumLevel`）。

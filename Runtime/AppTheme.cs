@@ -10,7 +10,7 @@ namespace ImageViewer.Runtime
         System
     }
 
-    // 外观主题配置：默认深色，存 exe 旁 App.config 的 appSettings。
+    // 外观主题配置：默认深色，存每用户 AppData 配置文件的 appSettings。
     public static class AppThemeStore
     {
         public const string ThemeKey = "Appearance.Theme";

@@ -10,6 +10,7 @@ namespace ImageViewer.Services
     {
         private const string LoggerName = "ImageViewer";
         public const string RegisterArgument = "--register-file-associations";
+        public const string RegisterUserCandidatesArgument = "--register-user-file-association-candidates";
         public const string UnregisterArgument = "--unregister-file-associations";
         private readonly Func<bool> isAdministrator;
         private readonly Func<string, int> runElevated;

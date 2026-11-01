@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace ImageViewer.Runtime
 {
-    // 查看器偏好（目前仅首启默认查看器引导的拒绝标记），与窗口状态共存于 exe 旁的 App.config。
+    // 查看器偏好（目前仅首启默认查看器引导的拒绝标记），与窗口状态共存于每用户 AppData 配置。
     public static class ViewerPreferencesStore
     {
         private const string LoggerName = "ImageViewer";

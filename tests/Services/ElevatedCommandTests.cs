@@ -12,6 +12,14 @@ namespace ImageViewer.Tests.Services
         }
 
         [Fact]
+        public void Parse_returns_user_candidate_registration_for_the_user_candidate_argument()
+        {
+            Assert.Equal(
+                ElevatedAction.RegisterUserCandidates,
+                ElevatedCommand.Parse(new[] { "--register-user-file-association-candidates" }));
+        }
+
+        [Fact]
         public void Parse_returns_unregister_for_the_unregister_argument()
         {
             Assert.Equal(ElevatedAction.Unregister, ElevatedCommand.Parse(new[] { "--unregister-file-associations" }));

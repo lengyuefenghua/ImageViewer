@@ -19,9 +19,12 @@ namespace ImageViewer.Tests.Runtime
         }
 
         [Fact]
-        public void Config_file_lives_next_to_the_executable()
+        public void Config_file_lives_in_the_current_user_appdata_folder()
         {
-            var expected = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ImageViewer.exe.config");
+            var expected = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "ImageViewer",
+                "settings.config");
 
             Assert.Equal(expected, ImageViewerPaths.ConfigFilePath);
         }

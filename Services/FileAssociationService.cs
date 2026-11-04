@@ -9,8 +9,8 @@ using Microsoft.Win32;
 namespace ImageViewer.Services
 {
     // 图片文件关联：注册为 jpg/jpeg/png/bmp 的打开候选（Applications + OpenWithProgids + RegisteredApplications），
-    // 并清理历史版本遗留的系统默认动词劫持；不写 UserChoice（Windows 哈希保护项），
-    // 因此不会自动成为默认——仍需用户在系统设置里手动选择一次才真正成为默认。
+    // 并清理历史版本遗留的系统默认动词劫持。用户明确要求设为默认时，另由 SetDefaultViewer 写入带 Hash 的 UserChoice
+    //（Hash 算法未公开，见 UserChoiceHash；Windows 更新后可能失效，调用方需准备降级）。
     public sealed class FileAssociationService
     {
         private const string LoggerName = "ImageViewer";
@@ -106,7 +106,7 @@ namespace ImageViewer.Services
                     var systemProgId = ReadExtensionProgId(extension);
                     if (!String.IsNullOrWhiteSpace(systemProgId)) RestoreHijackedDefaultVerb(systemProgId);
                 }
-                CleanupLegacy32BitRegistration(executablePath);
+                CleanupLegacy32BitRegistration();
                 // RegisteredApplications + Capabilities：让应用出现在「默认应用」列表并可一键设为默认。
                 using (var registered = root.CreateSubKey(registeredApplicationsPath))
                 {
@@ -151,7 +151,7 @@ namespace ImageViewer.Services
                     var systemProgId = ReadExtensionProgId(extension);
                     if (!String.IsNullOrWhiteSpace(systemProgId)) RestoreHijackedDefaultVerb(systemProgId);
                 }
-                CleanupLegacy32BitRegistration(executablePath);
+                CleanupLegacy32BitRegistration();
                 root.DeleteSubKeyTree(classesRootPath + "\\" + ProgId, false);
                 root.DeleteSubKeyTree(classesRootPath + @"\Applications\" + Path.GetFileName(executablePath), false);
                 root.DeleteSubKeyTree(softwareRootPath + @"\" + CapabilitiesKeyName, false);
@@ -159,6 +159,7 @@ namespace ImageViewer.Services
                 {
                     if (registered != null) registered.DeleteValue(FriendlyAppName, false);
                 }
+                RemoveDefaultViewer(executablePath);
 
                 NotifyShellOfAssociationChange();
                 Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "已取消图片文件关联候选：" + String.Join("、", extensions), null);
@@ -296,43 +297,16 @@ namespace ImageViewer.Services
         }
 
         // 早期 32 位版本把机器级注册写进 HKLM 的 32 位视图（WOW6432Node），64 位进程不可见；注册/取消时一并清理。
-        private void CleanupLegacy32BitRegistration(string executablePath)
+        // Software\Classes 的文件关联键（ProgID、Applications\<exe>、扩展名 OpenWithProgids）与 Software\RegisteredApplications
+        // 在 32/64 位视图间共享，从 32 位视图删除等于删掉当前注册，因此只清理真正被重定向的 Software\ImageViewer。
+        private void CleanupLegacy32BitRegistration()
         {
             var root32 = ResolveLegacy32Root();
             if (root32 == null) return;
 
             try
             {
-                var cleaned = false;
-                using (var registered = root32.OpenSubKey(@"Software\RegisteredApplications", true))
-                {
-                    if (registered != null && registered.GetValue(FriendlyAppName) != null)
-                    {
-                        registered.DeleteValue(FriendlyAppName, false);
-                        cleaned = true;
-                    }
-                }
-                using (var classes = root32.OpenSubKey(@"Software\Classes", true))
-                {
-                    if (classes != null)
-                    {
-                        cleaned |= DeleteSubKeyIfExists(classes, ProgId);
-                        cleaned |= DeleteSubKeyIfExists(classes, @"Applications\" + Path.GetFileName(executablePath));
-                        foreach (var extension in extensions)
-                        {
-                            using (var openWith = classes.OpenSubKey(extension + @"\OpenWithProgids", true))
-                            {
-                                if (openWith != null && openWith.GetValue(ProgId) != null)
-                                {
-                                    openWith.DeleteValue(ProgId, false);
-                                    cleaned = true;
-                                }
-                            }
-                        }
-                    }
-                }
-                cleaned |= DeleteSubKeyIfExists(root32, @"Software\" + CapabilitiesKeyName);
-                if (cleaned)
+                if (DeleteSubKeyIfExists(root32, @"Software\" + CapabilitiesKeyName))
                 {
                     Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "已清理 32 位视图的旧注册残留", null);
                 }
@@ -467,6 +441,8 @@ namespace ImageViewer.Services
             }
             Diagnostics.Sink.Log(failed > 0 ? LogSeverity.Warn : LogSeverity.Info, LoggerName,
                 "重置旧默认选择完成：已清除 " + cleared + " 项，失败 " + failed + " 项", null);
+            // 清除后也要刷新 shell 缓存，否则资源管理器可能继续按旧关联解析。
+            NotifyShellOfAssociationChange();
             return new UserChoiceResetResult(cleared, failed);
         }
 
@@ -476,6 +452,132 @@ namespace ImageViewer.Services
             using (var userChoice = extensionKey.OpenSubKey("UserChoice"))
             {
                 return userChoice == null ? null : userChoice.GetValue("ProgId") as string;
+            }
+        }
+
+        private string ReadUserChoiceProgId(string extension)
+        {
+            using (var key = root.OpenSubKey(fileExtsRootPath + "\\" + extension))
+            {
+                return key == null ? null : ReadUserChoiceProgId(key);
+            }
+        }
+
+        // 直接把本程序写成各扩展名的默认程序。只有用户明确要求（点「设为默认」/勾选安装选项）时才应调用：
+        // 这会覆盖用户此前为图片选定的其他程序。
+        public UserChoiceSetResult SetDefaultViewer(string executablePath)
+        {
+            if (String.IsNullOrWhiteSpace(executablePath)) throw new ArgumentException("可执行文件路径不能为空。", "executablePath");
+
+            var applied = 0;
+            var failed = 0;
+            if (!IsCurrentUserRoot())
+            {
+                // 默认程序是用户级设置，机器级（HKLM）实例不处理。
+                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "非当前用户注册表根，跳过设置默认图片程序", null);
+                return new UserChoiceSetResult(0, extensions.Length);
+            }
+
+            var userSid = UserChoiceHash.GetUserSid();
+            if (String.IsNullOrWhiteSpace(userSid))
+            {
+                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "无法取得当前用户 SID，跳过设置默认图片程序", null);
+                return new UserChoiceSetResult(0, extensions.Length);
+            }
+
+            var now = DateTime.Now;
+            foreach (var extension in extensions)
+            {
+                try
+                {
+                    var hash = UserChoiceHash.Compute(UserChoiceHash.BuildBaseInfo(extension, userSid, ProgId, now, UserChoiceHash.UserExperience));
+                    if (String.IsNullOrEmpty(hash))
+                    {
+                        failed++;
+                        Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "计算默认程序哈希失败：" + extension, null);
+                        continue;
+                    }
+
+                    var userChoicePath = fileExtsRootPath + "\\" + extension + "\\UserChoice";
+                    DeleteUserChoiceKey(userChoicePath);
+                    using (var key = root.CreateSubKey(userChoicePath))
+                    {
+                        key.SetValue("Hash", hash);
+                        key.SetValue("ProgId", ProgId);
+                    }
+                    WriteAssociationToast(extension);
+
+                    // 被系统或安全软件拦截时写入会静默失败，回读后计数才可信。
+                    var written = ReadUserChoiceProgId(extension);
+                    if (String.Equals(written, ProgId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        applied++;
+                    }
+                    else
+                    {
+                        failed++;
+                        Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "设置默认程序后回读不一致：" + extension, null);
+                    }
+                }
+                catch (Exception error)
+                {
+                    failed++;
+                    Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "设置默认图片程序失败：" + extension, error);
+                }
+            }
+
+            NotifyShellOfAssociationChange();
+            Diagnostics.Sink.Log(failed > 0 ? LogSeverity.Warn : LogSeverity.Info, LoggerName,
+                "设置默认图片程序完成：成功 " + applied + " 项，失败 " + failed + " 项", null);
+            return new UserChoiceSetResult(applied, failed);
+        }
+
+        // 取消关联时清掉指向本程序的默认选择；用户选了别的程序时保持不动。
+        public int RemoveDefaultViewer(string executablePath)
+        {
+            if (String.IsNullOrWhiteSpace(executablePath)) throw new ArgumentException("可执行文件路径不能为空。", "executablePath");
+            if (!IsCurrentUserRoot()) return 0;
+
+            var applicationProgId = ApplicationProgId(executablePath);
+            var removed = 0;
+            foreach (var extension in extensions)
+            {
+                if (!IsOurProgId(ReadUserChoiceProgId(extension), applicationProgId)) continue;
+                DeleteUserChoiceKey(fileExtsRootPath + "\\" + extension + "\\UserChoice");
+                removed++;
+            }
+            if (removed > 0)
+            {
+                NotifyShellOfAssociationChange();
+                Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "已清除指向本程序的默认选择：" + removed + " 项", null);
+            }
+            return removed;
+        }
+
+        private bool IsCurrentUserRoot()
+        {
+            return root.Name.StartsWith("HKEY_CURRENT_USER", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // UserChoice 上带有拒绝 SetValue 的保护性 ACE：先打开该键再删除会被拒绝，
+        // 用父键句柄调用 RegDeleteKey 才能删掉，重建后的键继承父键 ACL。
+        private static void DeleteUserChoiceKey(string relativePath)
+        {
+            RegDeleteKey(HkeyCurrentUser, relativePath);
+        }
+
+        private void WriteAssociationToast(string extension)
+        {
+            try
+            {
+                using (var toasts = root.CreateSubKey(softwareRootPath + @"\Microsoft\Windows\CurrentVersion\ApplicationAssociationToasts"))
+                {
+                    toasts.SetValue(ProgId + "_" + extension, 0, RegistryValueKind.DWord);
+                }
+            }
+            catch (Exception error)
+            {
+                Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName, "写入关联提示记录失败：" + extension, error);
             }
         }
 
@@ -495,7 +597,12 @@ namespace ImageViewer.Services
         [DllImport("shell32.dll", CharSet = CharSet.Auto, SetLastError = false)]
         private static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
 
-        // 引导入口：Windows 不允许程序修改默认应用（UserChoice 保护），只能打开系统设置由用户确认。
+        private static readonly IntPtr HkeyCurrentUser = new IntPtr(unchecked((int)0x80000001));
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern int RegDeleteKey(IntPtr hKey, string subKey);
+
+        // 引导入口：程序已尝试直接写入默认程序，失败时仍可打开系统设置由用户确认。
         public void OpenDefaultAppsSettings()
         {
             try
@@ -520,6 +627,19 @@ namespace ImageViewer.Services
         }
 
         public int Cleared { get; private set; }
+        public int Failed { get; private set; }
+    }
+
+    // 设置默认程序的结果：Applied 为已生效项数，Failed 为被系统或安全软件拦截的项数。
+    public sealed class UserChoiceSetResult
+    {
+        public UserChoiceSetResult(int applied, int failed)
+        {
+            Applied = applied;
+            Failed = failed;
+        }
+
+        public int Applied { get; private set; }
         public int Failed { get; private set; }
     }
 }

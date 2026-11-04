@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -23,6 +24,10 @@ namespace ImageViewer.Views
         private const string LoggerName = "ImageViewer";
         private const int WmNcLButtonDoubleClick = 0x00A3;
         private const int TitleBarIconSize = 24;
+        private const int ForegroundRetryLimit = 3;
+        private DispatcherTimer foregroundRetryTimer;
+        private int foregroundRetryCount;
+        private bool hasBeenForeground;
         private string imagePath;
         private readonly ImageViewerViewModel viewer;
         private readonly TransformGroup surfaceTransform = new TransformGroup();
@@ -66,6 +71,7 @@ namespace ImageViewer.Views
             ImageSurface.RenderTransform = surfaceTransform;
             Title = String.IsNullOrWhiteSpace(imagePath) ? "ImageViewer" : Path.GetFileName(imagePath);
             viewer.PropertyChanged += OnViewerPropertyChanged;
+            Activated += OnWindowActivated;
             ApplyTitleBarIcon();
             windowStatePath = ResolveWindowStatePath();
             copyToShortcut = ResolveCopyShortcut();
@@ -103,6 +109,69 @@ namespace ImageViewer.Views
         }
 
         // 启动路径分派：单张优先尝试搜索结果直读，否则目录扫描+同级切换；多张按显式列表。
+        // 首次渲染后抢一次前台：从资源管理器双击启动时，Show() 可能早于前台交接完成，激活请求会被系统丢弃。
+        protected override void OnContentRendered(EventArgs e)
+        {
+            base.OnContentRendered(e);
+            TryTakeForeground(false);
+            if (isClosed || hasBeenForeground) return;
+
+            Diagnostics.Sink.Log(LogSeverity.Info, LoggerName, "窗口首次激活未生效，延迟重试前置", null);
+            foregroundRetryTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+            foregroundRetryTimer.Tick += OnForegroundRetryTick;
+            foregroundRetryTimer.Start();
+        }
+
+        private void OnWindowActivated(object sender, EventArgs e)
+        {
+            hasBeenForeground = true;
+            StopForegroundRetries();
+        }
+
+        private void OnForegroundRetryTick(object sender, EventArgs e)
+        {
+            foregroundRetryCount++;
+            var lastAttempt = foregroundRetryCount >= ForegroundRetryLimit;
+            TryTakeForeground(lastAttempt);
+            if (isClosed || hasBeenForeground || !lastAttempt) return;
+
+            StopForegroundRetries();
+            var handle = windowSource == null ? IntPtr.Zero : windowSource.Handle;
+            Diagnostics.Sink.Log(LogSeverity.Warn, LoggerName,
+                "窗口重试后仍未取得前台焦点（本窗口 " + handle + "，当前前台 " + GetForegroundWindow() + "）", null);
+        }
+
+        private void TryTakeForeground(bool allowTopmostFallback)
+        {
+            if (isClosed || hasBeenForeground) return;
+
+            var handle = windowSource == null ? IntPtr.Zero : windowSource.Handle;
+            if (handle != IntPtr.Zero && GetForegroundWindow() == handle)
+            {
+                hasBeenForeground = true;
+                return;
+            }
+
+            Activate();
+            if (handle != IntPtr.Zero && GetForegroundWindow() != handle) SetForegroundWindow(handle);
+
+            // 兜底：短暂置顶再取消，可绕过 Windows 的前台锁（仅在多次重试仍失败时使用）。
+            if (allowTopmostFallback && GetForegroundWindow() != handle)
+            {
+                Topmost = true;
+                Topmost = false;
+                Activate();
+            }
+        }
+
+        private void StopForegroundRetries()
+        {
+            if (foregroundRetryTimer == null) return;
+            foregroundRetryTimer.Stop();
+            foregroundRetryTimer.Tick -= OnForegroundRetryTick;
+            foregroundRetryTimer = null;
+        }
+
         private async Task LoadStartupPathsAsync()
         {
             if (startupPaths.Count == 1)
@@ -454,6 +523,8 @@ namespace ImageViewer.Views
         private void OnClosed(object sender, EventArgs e)
         {
             isClosed = true;
+            StopForegroundRetries();
+            Activated -= OnWindowActivated;
             viewer.PropertyChanged -= OnViewerPropertyChanged;
             // 解绑消息钩子：避免 HwndSource 继续持有已关闭窗口。
             if (windowSource != null)
@@ -820,6 +891,13 @@ namespace ImageViewer.Views
             windowSource = HwndSource.FromHwnd(handle);
             if (windowSource != null) windowSource.AddHook(WindowMessageHook);
         }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
 
         // 标题栏属于非客户区，WPF 收不到双击；在窗口级消息钩子里拦截 NC 双击实现全屏。
         private IntPtr WindowMessageHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)

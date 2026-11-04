@@ -391,6 +391,45 @@ namespace ImageViewer.Tests.Services
         }
 
         [Fact]
+        public void SetDefaultViewer_writes_hash_and_progid_for_every_extension()
+        {
+            var service = new FileAssociationService(Registry.CurrentUser, testRoot, testRoot + @"\FileExts");
+            service.Register(exePath);
+
+            var result = service.SetDefaultViewer(exePath);
+
+            Assert.Equal(0, result.Failed);
+            foreach (var extension in new[] { ".jpg", ".jpe", ".jpeg", ".jfif", ".png", ".bmp" })
+            {
+                using (var userChoice = Registry.CurrentUser.OpenSubKey(testRoot + @"\FileExts\" + extension + @"\UserChoice"))
+                {
+                    Assert.NotNull(userChoice);
+                    Assert.Equal(FileAssociationService.ProgId, userChoice.GetValue("ProgId"));
+                    Assert.False(String.IsNullOrWhiteSpace(userChoice.GetValue("Hash") as string));
+                }
+            }
+            Assert.True(service.IsDefaultViewer(exePath));
+        }
+
+        [Fact]
+        public void RemoveDefaultViewer_keeps_a_foreign_choice()
+        {
+            var service = new FileAssociationService(Registry.CurrentUser, testRoot, testRoot + @"\FileExts");
+            using (var userChoice = Registry.CurrentUser.CreateSubKey(testRoot + @"\FileExts\.png\UserChoice"))
+            {
+                userChoice.SetValue("ProgId", "PBrush");
+            }
+
+            var removed = service.RemoveDefaultViewer(exePath);
+
+            Assert.Equal(0, removed);
+            using (var userChoice = Registry.CurrentUser.OpenSubKey(testRoot + @"\FileExts\.png\UserChoice"))
+            {
+                Assert.Equal("PBrush", userChoice.GetValue("ProgId"));
+            }
+        }
+
+        [Fact]
         public void Register_cleans_a_legacy_32bit_registration()
         {
             using (var legacyRoot = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32"))
@@ -408,18 +447,20 @@ namespace ImageViewer.Tests.Services
 
                 service.Register(exePath);
 
-                using (var registered = Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\RegisteredApplications"))
-                {
-                    Assert.Null(registered.GetValue(FileAssociationService.FriendlyAppName));
-                    Assert.Equal(@"Software\Foreign\Capabilities", registered.GetValue("ForeignApp"));
-                }
                 Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\ImageViewer"));
-                Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\ImageViewer.Image"));
-                Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\Applications\ImageViewer.exe"));
+                // Classes 下的文件关联键在 32/64 位视图间共享，32 位清理删它们等于删掉刚写入的注册。
+                Assert.NotNull(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\ImageViewer.Image"));
+                Assert.NotNull(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\Applications\ImageViewer.exe"));
                 using (var openWith = Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\.jpg\OpenWithProgids"))
                 {
-                    Assert.Null(openWith.GetValue(FileAssociationService.ProgId));
+                    Assert.NotNull(openWith.GetValue(FileAssociationService.ProgId));
                 }
+                using (var registered = Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\RegisteredApplications"))
+                {
+                    Assert.Equal(@"Software\ImageViewer\Capabilities", registered.GetValue(FileAssociationService.FriendlyAppName));
+                    Assert.Equal(@"Software\Foreign\Capabilities", registered.GetValue("ForeignApp"));
+                }
+                Assert.True(service.IsRegistered(exePath));
             }
         }
 
@@ -433,13 +474,18 @@ namespace ImageViewer.Tests.Services
                 {
                     registered.SetValue(FileAssociationService.FriendlyAppName, @"Software\ImageViewer\Capabilities");
                 }
+                using (var capabilities = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32\Software\ImageViewer\Capabilities")) capabilities.SetValue("ApplicationName", "ImageViewer");
+                using (var progId = Registry.CurrentUser.CreateSubKey(testRoot + @"\Wow32\Software\Classes\ImageViewer.Image")) progId.SetValue(null, "ImageViewer 图片");
 
                 service.Unregister(exePath);
 
+                Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\ImageViewer"));
+                // 共享键由主注册路径处理，32 位清理不得越界删除。
                 using (var registered = Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\RegisteredApplications"))
                 {
-                    Assert.Null(registered.GetValue(FileAssociationService.FriendlyAppName));
+                    Assert.Equal(@"Software\ImageViewer\Capabilities", registered.GetValue(FileAssociationService.FriendlyAppName));
                 }
+                Assert.NotNull(Registry.CurrentUser.OpenSubKey(testRoot + @"\Wow32\Software\Classes\ImageViewer.Image"));
             }
         }
     }

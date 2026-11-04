@@ -118,7 +118,7 @@ namespace ImageViewer.Tests.Services
         }
 
         [Fact]
-        public void Register_resets_stale_user_choice_after_successful_registration()
+        public void Register_sets_the_default_viewer_after_successful_registration()
         {
             var machine = CreateMachine();
             var user = CreateUser();
@@ -131,6 +131,26 @@ namespace ImageViewer.Tests.Services
             service.Register();
 
             Assert.True(machine.IsRegistered(exePath));
+            Assert.True(service.IsDefaultViewer);
+            using (var userChoice = Registry.CurrentUser.OpenSubKey(testRoot + @"\FileExts\.jpg\UserChoice"))
+            {
+                Assert.Equal(FileAssociationService.ProgId, userChoice.GetValue("ProgId"));
+                Assert.False(String.IsNullOrWhiteSpace(userChoice.GetValue("Hash") as string));
+            }
+        }
+
+        [Fact]
+        public void Unregister_clears_the_default_choice_it_set()
+        {
+            var machine = CreateMachine();
+            var user = CreateUser();
+            var service = new ViewerAssociationService(machine, user, AdminRegistrar(), () => exePath);
+            service.Register();
+            Assert.True(service.IsDefaultViewer);
+
+            service.Unregister();
+
+            Assert.False(service.IsDefaultViewer);
             Assert.Null(Registry.CurrentUser.OpenSubKey(testRoot + @"\FileExts\.jpg\UserChoice"));
         }
 

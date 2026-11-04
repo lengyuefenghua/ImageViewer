@@ -65,7 +65,12 @@ namespace ImageViewer
                 }
                 else if (action == ElevatedAction.RegisterUserCandidates)
                 {
-                    new FileAssociationService().RegisterUserCandidates(executablePath);
+                    var userAssociations = new FileAssociationService();
+                    // 先清用户级旧注册（HKCU\Software\Classes 优先于 HKLM，旧版本可能残留），再写打开候选并设为默认；
+                    // 安装包不走 ViewerAssociationService，这段与它的用户级步骤保持一致。
+                    userAssociations.Unregister(executablePath);
+                    userAssociations.RegisterUserCandidates(executablePath);
+                    userAssociations.SetDefaultViewer(executablePath);
                 }
                 else
                 {
@@ -133,7 +138,8 @@ namespace ImageViewer
                 {
                     Diagnostics.Sink.Log(LogSeverity.Info, "ImageViewer", "用户选择设为默认图片查看器", null);
                     associations.Register();
-                    associations.OpenDefaultAppsSettings();
+                    // 已成功写入默认程序时不再打扰用户；被拦截时退回系统设置页。
+                    if (!associations.IsDefaultViewer) associations.OpenDefaultAppsSettings();
                 }
                 else if (result == Wpf.Ui.Controls.MessageBoxResult.Secondary)
                 {
